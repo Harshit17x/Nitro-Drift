@@ -22,9 +22,25 @@ namespace CarRace
         private bool handbrake;
         private bool paused;
         private bool finished;
+        private InputAction throttleAction;
+        private InputAction brakeAction;
+        private InputAction steerAction;
+        private InputAction handbrakeAction;
+        private InputAction pauseAction;
+        private InputAction respawnAction;
 
         public float SpeedKph => body == null ? 0f : body.linearVelocity.magnitude * 3.6f;
         public Rigidbody Body => body;
+
+        private void OnEnable()
+        {
+            if (Application.isPlaying) CreateInputActions();
+        }
+
+        private void OnDisable()
+        {
+            DisposeInputActions();
+        }
 
         public void Initialize()
         {
@@ -48,15 +64,24 @@ namespace CarRace
 
         private void Update()
         {
-            if (Keyboard.current == null) return;
+            ReadInput();
 
-            if (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.pKey.wasPressedThisFrame)
+            bool pausePressed = pauseAction != null && pauseAction.WasPressedThisFrame();
+            bool respawnPressed = respawnAction != null && respawnAction.WasPressedThisFrame();
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                pausePressed |= keyboard.escapeKey.wasPressedThisFrame || keyboard.pKey.wasPressedThisFrame;
+                respawnPressed |= keyboard.rKey.wasPressedThisFrame;
+            }
+
+            if (pausePressed)
             {
                 paused = !paused;
                 Time.timeScale = paused ? 0f : 1f;
             }
 
-            if (Keyboard.current.rKey.wasPressedThisFrame)
+            if (respawnPressed)
             {
                 FindAnyObjectByType<CarRaceGame>()?.RespawnPlayer();
             }
@@ -65,8 +90,6 @@ namespace CarRace
         private void FixedUpdate()
         {
             if (body == null || paused || finished) return;
-
-            ReadInput();
 
             Vector3 localVelocity = transform.InverseTransformDirection(body.linearVelocity);
             float forwardSpeed = localVelocity.z;
@@ -108,22 +131,22 @@ namespace CarRace
 
         private void ReadInput()
         {
+            throttle = throttleAction == null ? 0f : throttleAction.ReadValue<float>();
+            brake = brakeAction == null ? 0f : brakeAction.ReadValue<float>();
+            steer = steerAction == null ? 0f : steerAction.ReadValue<float>();
+            handbrake = handbrakeAction != null && handbrakeAction.IsPressed();
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
             {
-                throttle = 0f;
-                brake = 0f;
-                steer = 0f;
-                handbrake = false;
                 return;
             }
 
-            throttle = keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1f : 0f;
-            brake = keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1f : 0f;
-            steer = 0f;
-            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) steer -= 1f;
-            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) steer += 1f;
-            handbrake = keyboard.spaceKey.isPressed;
+            throttle = Mathf.Max(throttle, keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1f : 0f);
+            brake = Mathf.Max(brake, keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1f : 0f);
+            if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) steer = Mathf.Min(steer, -1f);
+            if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) steer = Mathf.Max(steer, 1f);
+            handbrake |= keyboard.spaceKey.isPressed;
 
             if (Gamepad.current != null)
             {
@@ -133,6 +156,64 @@ namespace CarRace
                 if (Mathf.Abs(gamepad.leftStick.x.ReadValue()) > 0.1f) steer = gamepad.leftStick.x.ReadValue();
                 handbrake |= gamepad.buttonSouth.isPressed;
             }
+        }
+
+        private void CreateInputActions()
+        {
+            DisposeInputActions();
+
+            throttleAction = new InputAction("Throttle", InputActionType.Button);
+            throttleAction.AddBinding("<Keyboard>/w");
+            throttleAction.AddBinding("<Keyboard>/upArrow");
+            throttleAction.AddBinding("<Gamepad>/rightTrigger");
+
+            brakeAction = new InputAction("Brake", InputActionType.Button);
+            brakeAction.AddBinding("<Keyboard>/s");
+            brakeAction.AddBinding("<Keyboard>/downArrow");
+            brakeAction.AddBinding("<Gamepad>/leftTrigger");
+
+            steerAction = new InputAction("Steer", InputActionType.Value);
+            steerAction.AddCompositeBinding("1DAxis")
+                .With("Negative", "<Keyboard>/a")
+                .With("Positive", "<Keyboard>/d");
+            steerAction.AddCompositeBinding("1DAxis")
+                .With("Negative", "<Keyboard>/leftArrow")
+                .With("Positive", "<Keyboard>/rightArrow");
+            steerAction.AddBinding("<Gamepad>/leftStick/x");
+
+            handbrakeAction = new InputAction("Handbrake", InputActionType.Button);
+            handbrakeAction.AddBinding("<Keyboard>/space");
+            handbrakeAction.AddBinding("<Gamepad>/buttonSouth");
+
+            pauseAction = new InputAction("Pause", InputActionType.Button);
+            pauseAction.AddBinding("<Keyboard>/p");
+            pauseAction.AddBinding("<Keyboard>/escape");
+
+            respawnAction = new InputAction("Respawn", InputActionType.Button);
+            respawnAction.AddBinding("<Keyboard>/r");
+
+            throttleAction.Enable();
+            brakeAction.Enable();
+            steerAction.Enable();
+            handbrakeAction.Enable();
+            pauseAction.Enable();
+            respawnAction.Enable();
+        }
+
+        private void DisposeInputActions()
+        {
+            throttleAction?.Dispose();
+            brakeAction?.Dispose();
+            steerAction?.Dispose();
+            handbrakeAction?.Dispose();
+            pauseAction?.Dispose();
+            respawnAction?.Dispose();
+            throttleAction = null;
+            brakeAction = null;
+            steerAction = null;
+            handbrakeAction = null;
+            pauseAction = null;
+            respawnAction = null;
         }
 
         public void SetFinished(bool value)
