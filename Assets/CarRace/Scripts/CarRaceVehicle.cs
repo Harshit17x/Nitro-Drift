@@ -25,10 +25,10 @@ namespace CarRace
         [SerializeField] private float reverseForce = 4500f;
         [SerializeField] private float brakeForce = 16000f;
         [SerializeField] private float steerAngle = 32f;
-        [SerializeField] private float lateralGrip = 13f;
-        [SerializeField] private float driftGrip = 3.6f;
+        [SerializeField] private float lateralGrip = 14f;
+        [SerializeField] private float driftGrip = 2.0f;
         [SerializeField] private float tireFriction = 1.4f;
-        [SerializeField] private float driftFriction = 0.55f;
+        [SerializeField] private float driftFriction = 0.45f;
         [SerializeField] private float rollingResistance = 15f;
         [SerializeField] private float aerodynamicDrag = 0.6f;
         [SerializeField] private float steeringGain = 5.0f;
@@ -38,12 +38,12 @@ namespace CarRace
         [SerializeField] private float throttleResponse = 7f;
         [SerializeField] private float steeringResponse = 10f;
 
-        [Header("Drift System")]
-        [SerializeField] private float driftInitiationSpeed = 10f;
-        [SerializeField] private float driftEntryImpulse = 4.5f;
-        [SerializeField] private float driftSteerAuthority = 1.35f;
-        [SerializeField] private float driftCounterSteerGain = 4.8f;
-        [SerializeField] private float driftForwardPropulsion = 0.55f;
+        [Header("Drift & Drag System")]
+        [SerializeField] private float handbrakeDragForce = 6500f;
+        [SerializeField] private float driftEntryImpulse = 5.0f;
+        [SerializeField] private float driftSteerAuthority = 1.4f;
+        [SerializeField] private float driftCounterSteerGain = 5.0f;
+        [SerializeField] private float driftForwardPropulsion = 0.50f;
         [SerializeField] private float driftExitBoostForce = 3500f;
         [SerializeField] private float maxDriftAngle = 60f;
 
@@ -87,8 +87,10 @@ namespace CarRace
         private float currentDriftComboPoints;
         private int driftMultiplier = 1;
         private float driftBoostCharge;
-        private float driftExitTimer;
         private TrailRenderer[] skidTrails;
+        private ParticleSystem[] smokeEmitters;
+        private ParticleSystem.EmissionModule[] smokeEmissions;
+        private bool wasHandbrakeActive;
 
         private InputAction throttleAction;
         private InputAction brakeAction;
@@ -205,6 +207,7 @@ namespace CarRace
 
             visualRoot.localRotation = importedModel ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.Euler(0f, 180f, 0f);
             SetupSkidTrails();
+            SetupSmokeEmitters();
         }
 
         private void SetupSkidTrails()
@@ -214,8 +217,22 @@ namespace CarRace
             skidTrails = new TrailRenderer[2];
             Vector3[] rearAxleOffsets = { WheelAxles[2], WheelAxles[3] };
 
-            Shader trailShader = Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Unlit");
-            Material skidMat = new Material(trailShader) { color = new Color(0.12f, 0.12f, 0.12f, 0.65f) };
+            Texture2D skidTex = MakeTireSkidTexture(32, 64);
+            Shader trailShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ??
+                                 Shader.Find("Sprites/Default") ??
+                                 Shader.Find("Universal Render Pipeline/Unlit");
+            Material skidMat = new Material(trailShader);
+            skidMat.mainTexture = skidTex;
+            if (skidMat.HasProperty("_BaseMap")) skidMat.SetTexture("_BaseMap", skidTex);
+            if (skidMat.HasProperty("_BaseColor")) skidMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.12f, 0.90f));
+            if (skidMat.HasProperty("_Color")) skidMat.SetColor("_Color", new Color(0.12f, 0.12f, 0.12f, 0.90f));
+            skidMat.SetFloat("_Surface", 1f);
+            skidMat.SetFloat("_Blend", 0f);
+            skidMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            skidMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            skidMat.SetFloat("_ZWrite", 0f);
+            skidMat.renderQueue = 3000;
+            skidMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
 
             for (int i = 0; i < 2; i++)
             {
@@ -240,15 +257,148 @@ namespace CarRace
                     tr = trailObj.AddComponent<TrailRenderer>();
                 }
                 tr.startWidth = 0.28f;
-                tr.endWidth = 0.22f;
-                tr.time = 3.2f;
-                tr.minVertexDistance = 0.12f;
+                tr.endWidth = 0.26f;
+                tr.time = 4.0f;
+                tr.minVertexDistance = 0.10f;
                 tr.sharedMaterial = skidMat;
                 tr.emitting = false;
                 tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 tr.receiveShadows = false;
                 skidTrails[i] = tr;
             }
+        }
+
+        private void SetupSmokeEmitters()
+        {
+            if (smokeEmitters != null && smokeEmitters.Length == 2 && smokeEmitters[0] != null) return;
+
+            smokeEmitters = new ParticleSystem[2];
+            smokeEmissions = new ParticleSystem.EmissionModule[2];
+            Vector3[] rearAxleOffsets = { WheelAxles[2], WheelAxles[3] };
+
+            Texture2D smokeTex = MakeSoftCircleTexture(64);
+            Shader smokeShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ??
+                                 Shader.Find("Particles/Standard Unlit") ??
+                                 Shader.Find("Sprites/Default");
+            Material smokeMat = new Material(smokeShader);
+            smokeMat.mainTexture = smokeTex;
+            if (smokeMat.HasProperty("_BaseMap")) smokeMat.SetTexture("_BaseMap", smokeTex);
+            if (smokeMat.HasProperty("_BaseColor")) smokeMat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.65f));
+            if (smokeMat.HasProperty("_Color")) smokeMat.SetColor("_Color", new Color(1f, 1f, 1f, 0.65f));
+            smokeMat.SetFloat("_Surface", 1f);
+            smokeMat.SetFloat("_Blend", 0f);
+            smokeMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            smokeMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            smokeMat.SetFloat("_ZWrite", 0f);
+            smokeMat.renderQueue = 3000;
+            smokeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            for (int i = 0; i < 2; i++)
+            {
+                string smokeName = $"TireSmoke_{i}";
+                Transform existing = transform.Find(smokeName);
+                GameObject smokeObj;
+                if (existing != null)
+                {
+                    smokeObj = existing.gameObject;
+                }
+                else
+                {
+                    smokeObj = new GameObject(smokeName);
+                    smokeObj.transform.SetParent(transform, false);
+                }
+
+                smokeObj.transform.localPosition = new Vector3(rearAxleOffsets[i].x, -0.68f, rearAxleOffsets[i].z - 0.25f);
+                smokeObj.transform.localRotation = Quaternion.Euler(-15f, i == 0 ? -20f : 20f, 0f);
+
+                ParticleSystem ps = smokeObj.GetComponent<ParticleSystem>();
+                if (ps == null)
+                {
+                    ps = smokeObj.AddComponent<ParticleSystem>();
+                }
+
+                var main = ps.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                main.startLifetime = 0.85f;
+                main.startSpeed = 2.2f;
+                main.startSize = 0.45f;
+                main.startColor = new Color(0.92f, 0.92f, 0.95f, 0.50f);
+                main.maxParticles = 200;
+                main.gravityModifier = -0.12f;
+
+                var emission = ps.emission;
+                emission.rateOverTime = 0f;
+                emission.enabled = true;
+
+                var shape = ps.shape;
+                shape.shapeType = ParticleSystemShapeType.Cone;
+                shape.angle = 28f;
+                shape.radius = 0.15f;
+
+                var sizeOverLifetime = ps.sizeOverLifetime;
+                sizeOverLifetime.enabled = true;
+                AnimationCurve curve = new AnimationCurve();
+                curve.AddKey(0f, 0.45f);
+                curve.AddKey(1f, 2.2f);
+                sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, curve);
+
+                var colorOverLifetime = ps.colorOverLifetime;
+                colorOverLifetime.enabled = true;
+                Gradient grad = new Gradient();
+                grad.SetKeys(
+                    new GradientColorKey[] { new GradientColorKey(new Color(0.92f, 0.92f, 0.94f), 0f), new GradientColorKey(new Color(0.88f, 0.88f, 0.90f), 1f) },
+                    new GradientAlphaKey[] { new GradientAlphaKey(0.55f, 0f), new GradientAlphaKey(0.35f, 0.35f), new GradientAlphaKey(0f, 1f) }
+                );
+                colorOverLifetime.color = grad;
+
+                var renderer = smokeObj.GetComponent<ParticleSystemRenderer>();
+                renderer.sharedMaterial = smokeMat;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                smokeEmitters[i] = ps;
+                smokeEmissions[i] = emission;
+            }
+        }
+
+        private static Texture2D MakeSoftCircleTexture(int size)
+        {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x - center) / center;
+                    float dy = (y - center) / center;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = Mathf.Clamp01(1f - dist);
+                    alpha = alpha * alpha;
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private static Texture2D MakeTireSkidTexture(int width, int height)
+        {
+            Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float u = x / (float)(width - 1);
+                    float rib1 = 1f - Mathf.Clamp01(Mathf.Abs(u - 0.25f) / 0.16f);
+                    float rib2 = 1f - Mathf.Clamp01(Mathf.Abs(u - 0.75f) / 0.16f);
+                    float ribs = Mathf.Max(rib1, rib2);
+                    float edges = Mathf.SmoothStep(0f, 0.1f, u) * Mathf.SmoothStep(1f, 0.9f, u);
+                    float alpha = ribs * edges * 0.95f;
+                    tex.SetPixel(x, y, new Color(0.12f, 0.12f, 0.12f, alpha));
+                }
+            }
+            tex.Apply();
+            return tex;
         }
 
         private void Update()
@@ -303,6 +453,7 @@ namespace CarRace
             float[] compressions = new float[4];
             bool[] wheelGrounded = new bool[4];
             Vector3[] groundNormals = new Vector3[4];
+            Vector3[] groundContactPoints = new Vector3[4];
             Vector3[] axleWorlds = new Vector3[4];
 
             const float rayStartHeight = 0.35f;
@@ -322,6 +473,7 @@ namespace CarRace
                     Vector3 groundNormal = roadHit.normal.normalized;
                     groundNormals[i] = groundNormal;
                     groundNormalSum += groundNormal;
+                    groundContactPoints[i] = roadHit.point;
 
                     float distFromAxle = roadHit.distance - rayStartHeight;
                     float compression = Mathf.Clamp(suspensionRestDist - distFromAxle, 0f, suspensionTravel);
@@ -350,55 +502,86 @@ namespace CarRace
             }
             currentDriftAngle = Mathf.Abs(rawSlipAngle);
 
-            // Drift Initiation & State Tracking
-            bool handbrakeDriftTrigger = handbrake && forwardSpeed > 2.5f && (Mathf.Abs(steer) > 0.05f || currentDriftAngle > 4f);
-            bool flickDriftTrigger = speedKph > driftInitiationSpeed && Mathf.Abs(steer) > 0.65f && currentDriftAngle > 8f;
+            // Handbrake & Drift State Management:
+            // Immediate activation when Space is clicked; immediate release when Space is unclicked!
+            bool handbrakeJustPressed = handbrake && !wasHandbrakeActive;
 
-            if (!isDrifting && (handbrakeDriftTrigger || flickDriftTrigger))
+            if (handbrakeJustPressed)
             {
-                isDrifting = true;
-                driftExitTimer = 0f;
-                float flickSign = steer != 0f ? Mathf.Sign(steer) : -Mathf.Sign(lateralSpeed);
-                body.AddTorque(avgNormal * (flickSign * driftEntryImpulse * body.mass * 0.45f), ForceMode.Impulse);
+                if (Mathf.Abs(forwardSpeed) > 1.0f)
+                {
+                    isDrifting = true;
+                    float flickSign = steer != 0f ? Mathf.Sign(steer) : (Mathf.Abs(lateralSpeed) > 0.5f ? -Mathf.Sign(lateralSpeed) : -1f);
+                    body.AddTorque(avgNormal * (flickSign * driftEntryImpulse * body.mass * 0.5f), ForceMode.Impulse);
+                }
             }
 
-            if (isDrifting)
+            if (handbrake)
             {
-                if (currentDriftAngle > 6f && forwardSpeed > 1.8f)
+                isDrifting = true;
+
+                if (currentDriftAngle > 4f && forwardSpeed > 1.2f)
                 {
-                    driftExitTimer = 0f;
                     float angleBonus = Mathf.Clamp(currentDriftAngle / 12f, 1f, 4f);
                     float speedBonus = Mathf.Clamp(speedKph / 25f, 1f, 3f);
                     driftMultiplier = Mathf.Clamp(Mathf.FloorToInt(angleBonus * speedBonus * 0.75f), 1, 5);
 
-                    float pts = currentDriftAngle * (speedKph / 15f) * driftMultiplier * Time.fixedDeltaTime * 18f;
+                    float pts = currentDriftAngle * (speedKph / 15f) * driftMultiplier * Time.fixedDeltaTime * 20f;
                     currentDriftComboPoints += pts;
                     totalDriftScore += pts;
 
-                    driftBoostCharge = Mathf.Clamp01(driftBoostCharge + Time.fixedDeltaTime * 0.35f);
+                    driftBoostCharge = Mathf.Clamp01(driftBoostCharge + Time.fixedDeltaTime * 0.45f);
                 }
-                else
+            }
+            else
+            {
+                // When space is unclicked -> immediately release drift and restore full road grip!
+                if (wasHandbrakeActive || isDrifting)
                 {
-                    driftExitTimer += Time.fixedDeltaTime;
-                    if (driftExitTimer > 0.35f)
+                    if (driftBoostCharge > 0.25f && forwardSpeed > 3.0f)
                     {
-                        if (driftBoostCharge > 0.25f && forwardSpeed > 4.0f)
-                        {
-                            body.AddForce(surfaceFwd * (driftExitBoostForce * driftBoostCharge), ForceMode.Impulse);
-                        }
-                        isDrifting = false;
-                        driftBoostCharge = 0f;
-                        currentDriftComboPoints = 0f;
+                        // Release pop boost!
+                        body.AddForce(surfaceFwd * (driftExitBoostForce * driftBoostCharge), ForceMode.Impulse);
+                    }
+                    isDrifting = false;
+                    driftBoostCharge = 0f;
+                    currentDriftComboPoints = 0f;
+                }
+            }
+
+            // Tire Skid Marks & Smoke Emission:
+            // Active when space is held down and car is dragging on the ground!
+            bool draggingTires = handbrake && forwardSpeed > 0.8f;
+
+            for (int j = 0; j < 2; j++)
+            {
+                int wheelIdx = 2 + j;
+                if (wheelGrounded[wheelIdx])
+                {
+                    Vector3 contactPt = groundContactPoints[wheelIdx];
+                    Vector3 normal = groundNormals[wheelIdx];
+                    if (skidTrails != null && skidTrails[j] != null)
+                    {
+                        skidTrails[j].transform.position = contactPt + normal * 0.025f;
+                    }
+                    if (smokeEmitters != null && smokeEmitters[j] != null)
+                    {
+                        smokeEmitters[j].transform.position = contactPt + normal * 0.05f;
                     }
                 }
             }
 
-            // Tire Skid Marks
             if (skidTrails != null && skidTrails.Length >= 2)
             {
-                bool emit = isDrifting || handbrake || (currentDriftAngle > 10f && speedKph > 15f);
-                if (skidTrails[0] != null) skidTrails[0].emitting = wheelGrounded[2] && emit;
-                if (skidTrails[1] != null) skidTrails[1].emitting = wheelGrounded[3] && emit;
+                if (skidTrails[0] != null) skidTrails[0].emitting = wheelGrounded[2] && draggingTires;
+                if (skidTrails[1] != null) skidTrails[1].emitting = wheelGrounded[3] && draggingTires;
+            }
+
+            if (smokeEmissions != null && smokeEmissions.Length >= 2)
+            {
+                float smokeRate = draggingTires ? Mathf.Clamp(speedKph * 2.5f, 35f, 85f) : 0f;
+                if (smokeEmitters[0] != null) smokeEmissions[0].rateOverTime = wheelGrounded[2] ? smokeRate : 0f;
+                if (smokeEmitters[1] != null) smokeEmissions[1].rateOverTime = wheelGrounded[3] ? smokeRate : 0f;
             }
 
             for (int i = 0; i < 4; i++)
@@ -425,7 +608,9 @@ namespace CarRace
                 Vector3 wheelRgt = Vector3.Cross(groundNormal, wheelFwd).normalized;
                 float wheelForwardSpeed = Vector3.Dot(wheelVel, wheelFwd);
 
-                // Lateral tire grip: Front stays gripped, Rear slips during drift/handbrake
+                // Lateral tire grip:
+                // Front tires stay firmly gripped for sharp steering
+                // Rear tires lose grip when Space (handbrake) is held, and immediately regain grip when released!
                 float latVel = Vector3.Dot(wheelVel, wheelRgt);
                 float gripCoeff;
                 if (isFront)
@@ -434,31 +619,44 @@ namespace CarRace
                 }
                 else
                 {
-                    if (isDrifting || handbrake)
+                    if (handbrake)
                     {
-                        gripCoeff = Mathf.Lerp(driftGrip, driftGrip * 0.55f, Mathf.Clamp01(throttle));
+                        // Space is clicked: break traction!
+                        gripCoeff = driftGrip;
                     }
                     else
                     {
+                        // Space is released: full road grip!
                         gripCoeff = lateralGrip;
                     }
                 }
 
                 float desiredLatForce = latVel * gripCoeff * (body.mass * 0.25f);
-                float frictionCoeff = (!isFront && (isDrifting || handbrake)) ? driftFriction : tireFriction;
+                float frictionCoeff = (!isFront && handbrake) ? driftFriction : tireFriction;
                 float maxLatForce = Mathf.Max(springF * frictionCoeff, body.mass * 0.25f * gravityMagnitude * frictionCoeff);
                 Vector3 latForce = -wheelRgt * Mathf.Clamp(desiredLatForce, -maxLatForce, maxLatForce);
                 body.AddForceAtPosition(latForce, axleWorld, ForceMode.Force);
 
+                // Handbrake Drag Force on rear wheels when Space is pressed
+                if (!isFront && handbrake)
+                {
+                    float dragSpeed = Vector3.Dot(wheelVel, wheelFwd);
+                    if (dragSpeed > 0.2f)
+                    {
+                        Vector3 dragF = -wheelFwd * (handbrakeDragForce * 0.5f);
+                        body.AddForceAtPosition(dragF, axleWorld, ForceMode.Force);
+                    }
+                }
+
                 // Rear-biased drive with drift tangent blending
                 if (throttle > 0f && wheelForwardSpeed < maxSpeed)
                 {
-                    float driveBias = isFront ? 0.3f : 0.7f;
+                    float driveBias = isFront ? 0.35f : (handbrake ? 0.2f : 0.65f);
                     float speedRatio = Mathf.Clamp01(Mathf.Max(0f, wheelForwardSpeed) / maxSpeed);
                     float torqueFactor = Mathf.Lerp(1f, 0.3f, speedRatio);
 
                     Vector3 driveDir = wheelFwd;
-                    if (!isFront && isDrifting && planarVel.sqrMagnitude > 4f)
+                    if (!isFront && handbrake && planarVel.sqrMagnitude > 4f)
                     {
                         // Slerp drive force along slide tangent to power around curves!
                         driveDir = Vector3.Slerp(wheelFwd, planarVel.normalized, driftForwardPropulsion).normalized;
@@ -563,6 +761,7 @@ namespace CarRace
             }
 
             LimitForwardSpeed(groundNormalSum, groundedCount);
+            wasHandbrakeActive = handbrake;
         }
 
         private void ReadInput()
@@ -786,10 +985,10 @@ namespace CarRace
             for (int i = 0; i < 4; i++)
             {
                 if (wheels[i] == null) continue;
+                bool isFront = i < 2;
 
                 if (importedModel && baseWheelRotations != null && i < baseWheelRotations.Length)
                 {
-                    bool isFront = i < 2;
                     float steerYaw = 0f;
                     if (isFront)
                     {
@@ -805,7 +1004,9 @@ namespace CarRace
                     }
                     // In FBX hierarchy, local X is the rolling axle, local Y is steering yaw
                     Quaternion steerRot = Quaternion.Euler(0f, steerYaw, 0f);
-                    Quaternion rollRot = Quaternion.Euler(wheelRollAngle, 0f, 0f);
+                    // Rear wheels lock and drag when handbrake (Space) is clicked!
+                    float roll = (!isFront && handbrake) ? 0f : wheelRollAngle;
+                    Quaternion rollRot = Quaternion.Euler(roll, 0f, 0f);
                     wheels[i].localRotation = steerRot * rollRot * baseWheelRotations[i];
 
                     if (baseWheelPositions != null && i < baseWheelPositions.Length)
@@ -815,7 +1016,8 @@ namespace CarRace
                 }
                 else
                 {
-                    wheels[i].Rotate(Vector3.right, forwardSpeed * 0.08f, Space.Self);
+                    if (!isFront && handbrake) { }
+                    else wheels[i].Rotate(Vector3.right, forwardSpeed * 0.08f, Space.Self);
                 }
             }
         }
