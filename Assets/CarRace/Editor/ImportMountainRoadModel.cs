@@ -39,7 +39,7 @@ namespace CarRace.Editor
             }
 
             environment.name = EnvironmentName;
-            environment.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            environment.transform.SetPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
             environment.transform.localScale = Vector3.one;
             PrefabUtility.UnpackPrefabInstance(environment, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
             AddStaticMeshColliders(environment.transform);
@@ -71,7 +71,8 @@ namespace CarRace.Editor
                 MeshFilter meshFilter = child.GetComponent<MeshFilter>();
                 if (meshFilter == null || meshFilter.sharedMesh == null) continue;
 
-                MeshCollider collider = child.GetComponent<MeshCollider>() ?? child.gameObject.AddComponent<MeshCollider>();
+                MeshCollider collider = child.GetComponent<MeshCollider>();
+                if (collider == null) collider = child.gameObject.AddComponent<MeshCollider>();
                 collider.sharedMesh = meshFilter.sharedMesh;
                 collider.convex = false;
             }

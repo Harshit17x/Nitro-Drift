@@ -6,7 +6,7 @@ namespace CarRace
     {
         private const string ResourcePath = "mountain_road";
 
-        private async void Start()
+        private void Start()
         {
             if (!Application.isPlaying || GameObject.Find("Mountain Road Environment") != null) return;
 
@@ -19,7 +19,7 @@ namespace CarRace
 
             GameObject environment = Instantiate(modelAsset);
             environment.name = "Mountain Road Environment";
-            environment.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            environment.transform.SetPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
             environment.transform.localScale = Vector3.one;
             AddStaticMeshColliders(environment.transform);
 
@@ -33,7 +33,8 @@ namespace CarRace
                 MeshFilter meshFilter = child.GetComponent<MeshFilter>();
                 if (meshFilter == null || meshFilter.sharedMesh == null) continue;
 
-                MeshCollider collider = child.GetComponent<MeshCollider>() ?? child.gameObject.AddComponent<MeshCollider>();
+                MeshCollider collider = child.GetComponent<MeshCollider>();
+                if (collider == null) collider = child.gameObject.AddComponent<MeshCollider>();
                 collider.sharedMesh = meshFilter.sharedMesh;
                 collider.convex = false;
             }

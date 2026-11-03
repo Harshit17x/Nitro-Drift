@@ -39,35 +39,47 @@ namespace CarRace
         private const string UploadedEnvironmentName = "Mountain Road Environment";
         private const string UploadedDriveSurfaceName = "Mountain Road Drive Surface";
 
-        // The scan contains several stacked road passes. These points follow the
-        // continuous lower pass from the left edge of the scan to the right edge.
+        // Measured along the continuous winding mountain road from the lower pass (X=-160)
+        // ascending through switchbacks to the upper pass (Z=-80).
         private static readonly Vector3[] UploadedMountainRoadPath =
         {
-            new Vector3(-158f, -129f, 53f),
-            new Vector3(-142f, -120f, 51f),
-            new Vector3(-124f, -109f, 46f),
-            new Vector3(-106f, -92f, 44f),
-            new Vector3(-88f, -78f, 42f),
-            new Vector3(-70f, -74f, 40f),
-            new Vector3(-52f, -126f, 36f),
-            new Vector3(-34f, -150f, 46f),
-            new Vector3(-16f, -155f, 38f),
-            new Vector3(2f, -142f, 26f),
-            new Vector3(20f, -110f, 15f),
-            new Vector3(38f, -82f, 10f),
-            new Vector3(56f, -76f, 8f),
-            new Vector3(74f, -84f, 7f),
-            new Vector3(92f, -58f, 3f),
-            new Vector3(110f, -66f, 1f),
-            new Vector3(128f, -53f, -5f),
-            new Vector3(146f, -48f, -9f),
-            new Vector3(160f, -42f, -11f)
+            new Vector3(-158.0f, 18.17f, 118.5f),
+            new Vector3(-144.0f, 19.49f, 116.0f),
+            new Vector3(-130.0f, 13.77f, 114.0f),
+            new Vector3(-115.0f, 13.02f, 96.0f),
+            new Vector3(-100.0f, 15.20f, 85.0f),
+            new Vector3(-85.0f, 17.67f, 75.0f),
+            new Vector3(-70.0f, 19.79f, 80.0f),
+            new Vector3(-55.0f, 23.74f, 100.0f),
+            new Vector3(-40.0f, 30.93f, 120.0f),
+            new Vector3(-25.0f, 36.51f, 135.0f),
+            new Vector3(-10.0f, 40.43f, 140.0f),
+            new Vector3(5.0f, 43.32f, 135.0f),
+            new Vector3(20.0f, 42.55f, 115.0f),
+            new Vector3(35.0f, 43.57f, 95.0f),
+            new Vector3(50.0f, 53.41f, 80.0f),
+            new Vector3(60.0f, 53.33f, 75.0f),
+            new Vector3(65.0f, 55.53f, 65.0f),
+            new Vector3(50.0f, 61.76f, 40.0f),
+            new Vector3(35.0f, 52.08f, 40.0f),
+            new Vector3(15.0f, 50.99f, 40.0f),
+            new Vector3(-5.0f, 41.09f, 40.0f),
+            new Vector3(-25.0f, 40.19f, 30.0f),
+            new Vector3(-45.0f, 55.27f, 15.0f),
+            new Vector3(-65.0f, 53.02f, 0.0f),
+            new Vector3(-80.0f, 48.75f, -20.0f),
+            new Vector3(-85.0f, 48.15f, -40.0f),
+            new Vector3(-55.0f, 62.38f, -70.0f),
+            new Vector3(-15.0f, 84.49f, -80.0f),
+            new Vector3(10.0f, 81.58f, -80.0f),
+            new Vector3(35.0f, 72.64f, -80.0f)
         };
 
         public IReadOnlyList<Vector3> TrackCenters => centers;
 
         private void Awake()
         {
+            Application.runInBackground = true;
             Time.timeScale = 1f;
             BuildCenters();
 
@@ -132,6 +144,7 @@ namespace CarRace
             {
                 if (sceneObject == null) continue;
                 if (sceneObject.transform.parent != null || !IsGeneratedObject(sceneObject.name)) continue;
+                if (sceneObject.name == "Player Rally Car") continue;
                 DestroyImmediate(sceneObject);
             }
         }
@@ -192,12 +205,16 @@ namespace CarRace
         {
             if (player == null || centers.Count == 0) return;
             Rigidbody body = player.Body;
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
             player.transform.position = centers[0] + Vector3.up * 0.72f;
             GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
             player.transform.rotation = Quaternion.LookRotation(forward, up);
             previousProgress = 0f;
+            Camera.main?.GetComponent<CarRaceCamera>()?.SnapToTarget();
         }
 
         private void BuildMaterials()
@@ -320,11 +337,24 @@ namespace CarRace
 
             if (UsesUploadedMountainRoad())
             {
-                for (int i = 0; i < UploadedMountainRoadPath.Length; i++)
+                int count = UploadedMountainRoadPath.Length;
+                const int samplesPerSegment = 5;
+
+                for (int i = 0; i < count - 1; i++)
                 {
-                    centers.Add(UploadedMountainRoadPath[i]);
+                    Vector3 p0 = UploadedMountainRoadPath[Mathf.Max(i - 1, 0)];
+                    Vector3 p1 = UploadedMountainRoadPath[i];
+                    Vector3 p2 = UploadedMountainRoadPath[i + 1];
+                    Vector3 p3 = UploadedMountainRoadPath[Mathf.Min(i + 2, count - 1)];
+
+                    for (int s = 0; s < samplesPerSegment; s++)
+                    {
+                        float t = s / (float)samplesPerSegment;
+                        centers.Add(CatmullRom(p0, p1, p2, p3, t));
+                    }
                 }
 
+                centers.Add(UploadedMountainRoadPath[count - 1]);
                 return;
             }
 
@@ -336,6 +366,18 @@ namespace CarRace
                 float y = 1.2f + Mathf.Sin(t * 2f) * 1.2f + Mathf.Cos(t * 5f) * 0.35f;
                 centers.Add(new Vector3(x, y, z));
             }
+        }
+
+        private static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+        {
+            float t2 = t * t;
+            float t3 = t2 * t;
+            return 0.5f * (
+                (2f * p1) +
+                (-p0 + p2) * t +
+                (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+                (-p0 + 3f * p1 - 3f * p2 + p3) * t3
+            );
         }
 
         private void ReconnectSavedScene()
@@ -618,12 +660,22 @@ namespace CarRace
 
         private void BuildPlayer()
         {
-            GameObject carObject = new GameObject("Player Rally Car");
+            GameObject carObject = GameObject.Find("Player Rally Car");
+            if (carObject == null)
+            {
+                carObject = new GameObject("Player Rally Car");
+                carObject.AddComponent<BoxCollider>().size = new Vector3(2f, 1.4f, 4.4f);
+                player = carObject.AddComponent<CarRaceVehicle>();
+            }
+            else
+            {
+                player = carObject.GetComponent<CarRaceVehicle>();
+                if (player == null) player = carObject.AddComponent<CarRaceVehicle>();
+            }
+
             carObject.transform.position = centers[0] + Vector3.up * 0.72f;
             GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
             carObject.transform.rotation = Quaternion.LookRotation(forward, up);
-            carObject.AddComponent<BoxCollider>().size = new Vector3(2f, 1.4f, 4.4f);
-            player = carObject.AddComponent<CarRaceVehicle>();
             player.Initialize();
         }
 
@@ -642,25 +694,53 @@ namespace CarRace
             }
 
             Mesh mesh = new Mesh { name = UploadedDriveSurfaceName + " Mesh" };
-            Vector3[] vertices = new Vector3[centers.Count * 2];
-            int[] triangles = new int[(centers.Count - 1) * 6];
             float halfWidth = roadWidth * 0.5f;
+            float barrierOffset = halfWidth + 0.6f;
+            float barrierHeight = 1.6f;
 
-            for (int i = 0; i < centers.Count; i++)
+            int sliceCount = centers.Count;
+            Vector3[] vertices = new Vector3[sliceCount * 4];
+            int[] triangles = new int[(sliceCount - 1) * 3 * 6];
+
+            int tIdx = 0;
+            for (int i = 0; i < sliceCount; i++)
             {
                 GetRoadFrame(i, out _, out Vector3 right, out Vector3 up);
-                vertices[i * 2] = centers[i] - right * halfWidth + up * 0.04f;
-                vertices[i * 2 + 1] = centers[i] + right * halfWidth + up * 0.04f;
+                Vector3 center = centers[i];
 
-                if (i >= centers.Count - 1) continue;
-                int ti = i * 6;
-                int next = (i + 1) * 2;
-                triangles[ti] = i * 2;
-                triangles[ti + 1] = next;
-                triangles[ti + 2] = i * 2 + 1;
-                triangles[ti + 3] = i * 2 + 1;
-                triangles[ti + 4] = next;
-                triangles[ti + 5] = next + 1;
+                vertices[i * 4 + 0] = center - right * barrierOffset + up * barrierHeight;
+                vertices[i * 4 + 1] = center - right * halfWidth + up * 0.04f;
+                vertices[i * 4 + 2] = center + right * halfWidth + up * 0.04f;
+                vertices[i * 4 + 3] = center + right * barrierOffset + up * barrierHeight;
+
+                if (i >= sliceCount - 1) continue;
+
+                int row = i * 4;
+                int nextRow = (i + 1) * 4;
+
+                // Left barrier quad
+                triangles[tIdx++] = row + 0;
+                triangles[tIdx++] = nextRow + 1;
+                triangles[tIdx++] = row + 1;
+                triangles[tIdx++] = row + 0;
+                triangles[tIdx++] = nextRow + 0;
+                triangles[tIdx++] = nextRow + 1;
+
+                // Road driving surface quad
+                triangles[tIdx++] = row + 1;
+                triangles[tIdx++] = nextRow + 2;
+                triangles[tIdx++] = row + 2;
+                triangles[tIdx++] = row + 1;
+                triangles[tIdx++] = nextRow + 1;
+                triangles[tIdx++] = nextRow + 2;
+
+                // Right barrier quad
+                triangles[tIdx++] = row + 2;
+                triangles[tIdx++] = nextRow + 3;
+                triangles[tIdx++] = row + 3;
+                triangles[tIdx++] = row + 2;
+                triangles[tIdx++] = nextRow + 2;
+                triangles[tIdx++] = nextRow + 3;
             }
 
             mesh.vertices = vertices;
@@ -668,7 +748,14 @@ namespace CarRace
             mesh.RecalculateNormals();
 
             GameObject surface = new GameObject(UploadedDriveSurfaceName);
-            surface.AddComponent<MeshCollider>().sharedMesh = mesh;
+            MeshCollider collider = surface.AddComponent<MeshCollider>();
+            collider.sharedMesh = mesh;
+            collider.material = new PhysicsMaterial("MountainRoadSurfaceMat")
+            {
+                staticFriction = 0.05f,
+                dynamicFriction = 0.05f,
+                frictionCombine = PhysicsMaterialCombine.Minimum
+            };
         }
 
         public void NotifyUploadedMountainRoadLoaded(GameObject environment)

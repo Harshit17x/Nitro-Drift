@@ -69,8 +69,21 @@ namespace CarRace
             body.angularDamping = 4f;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            body.centerOfMass = new Vector3(0f, -0.45f, 0.1f);
+            body.centerOfMass = new Vector3(0f, -0.65f, 0.05f);
             body.WakeUp();
+
+            BoxCollider col = GetComponent<BoxCollider>();
+            if (col != null)
+            {
+                col.size = new Vector3(2.1f, 1.25f, 4.4f);
+                col.center = new Vector3(0f, 0.65f, 0f);
+                col.material = new PhysicsMaterial("VehiclePhysicMat")
+                {
+                    staticFriction = 0.05f,
+                    dynamicFriction = 0.05f,
+                    frictionCombine = PhysicsMaterialCombine.Minimum
+                };
+            }
             visualRoot = transform.Find("ImportedDelorean");
             importedModel = visualRoot != null;
             if (!importedModel)
@@ -112,7 +125,7 @@ namespace CarRace
                 Time.timeScale = paused ? 0f : 1f;
             }
 
-            if (respawnPressed)
+            if (respawnPressed || transform.position.y < -10f)
             {
                 FindAnyObjectByType<CarRaceGame>()?.RespawnPlayer();
             }
@@ -126,6 +139,11 @@ namespace CarRace
             Vector3 localVelocity = transform.InverseTransformDirection(body.linearVelocity);
             float forwardSpeed = localVelocity.z;
             float speedRatio = Mathf.Clamp01(body.linearVelocity.magnitude / maxSpeed);
+
+            // Upright stabilization to keep vehicle planted on mountain road slopes
+            Vector3 currentUp = transform.up;
+            Vector3 uprightAxis = Vector3.Cross(currentUp, Vector3.up);
+            body.AddTorque(uprightAxis * (body.mass * 35f), ForceMode.Force);
 
             if (throttle > 0f)
             {
@@ -166,7 +184,7 @@ namespace CarRace
             Vector3 lateralVelocity = Vector3.Project(body.linearVelocity, transform.right);
             float grip = handbrake ? lateralGrip * 0.2f : lateralGrip;
             body.AddForce(-lateralVelocity * grip, ForceMode.Force);
-            body.AddForce(Vector3.down * (body.linearVelocity.sqrMagnitude * 0.018f), ForceMode.Force);
+            body.AddForce(-transform.up * (body.linearVelocity.sqrMagnitude * 0.022f), ForceMode.Force);
 
             if (body.linearVelocity.magnitude > maxSpeed)
             {
