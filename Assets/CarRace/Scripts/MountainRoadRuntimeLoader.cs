@@ -4,26 +4,43 @@ namespace CarRace
 {
     public sealed class MountainRoadRuntimeLoader : MonoBehaviour
     {
-        private const string ResourcePath = "mountain_road";
+        private const string ResourcePath1 = "mountain_road";
+        private const string ResourcePath2 = "mountain_road_2";
 
         private void Start()
         {
-            if (!Application.isPlaying || GameObject.Find("Mountain Road Environment") != null) return;
+            if (!Application.isPlaying) return;
 
-            GameObject modelAsset = Resources.Load<GameObject>(ResourcePath);
-            if (modelAsset == null)
+            GameObject env1 = GameObject.Find("Mountain Road Environment");
+            if (env1 == null)
             {
-                Debug.LogError($"Could not load Resources/{ResourcePath}.glb.");
-                return;
+                GameObject asset1 = Resources.Load<GameObject>(ResourcePath1);
+                if (asset1 != null)
+                {
+                    env1 = Instantiate(asset1);
+                    env1.name = "Mountain Road Environment";
+                    env1.transform.SetPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
+                    env1.transform.localScale = Vector3.one;
+                    AddStaticMeshColliders(env1.transform);
+                }
             }
 
-            GameObject environment = Instantiate(modelAsset);
-            environment.name = "Mountain Road Environment";
-            environment.transform.SetPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
-            environment.transform.localScale = Vector3.one;
-            AddStaticMeshColliders(environment.transform);
+            GameObject env2 = GameObject.Find("Mountain Road Environment 2");
+            if (env2 == null)
+            {
+                GameObject asset2 = Resources.Load<GameObject>(ResourcePath2);
+                if (asset2 != null)
+                {
+                    env2 = Instantiate(asset2);
+                    env2.name = "Mountain Road Environment 2";
+                    env2.transform.position = new Vector3(248.88f, 39.49f, 244.37f);
+                    env2.transform.rotation = Quaternion.Euler(0f, 200f, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                    env2.transform.localScale = Vector3.one;
+                    AddStaticMeshColliders(env2.transform);
+                }
+            }
 
-            FindAnyObjectByType<CarRaceGame>()?.NotifyUploadedMountainRoadLoaded(environment);
+            FindAnyObjectByType<CarRaceGame>()?.NotifyUploadedMountainRoadLoaded(env1 ?? env2);
         }
 
         private static void AddStaticMeshColliders(Transform root)

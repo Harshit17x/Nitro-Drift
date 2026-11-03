@@ -41,13 +41,16 @@ namespace CarRace
         private Material guardrailMaterial;
 
         private const string UploadedEnvironmentName = "Mountain Road Environment";
+        private const string UploadedEnvironment2Name = "Mountain Road Environment 2";
+        private const string UploadedConnectorName = "Mountain Road Connector";
         private const string UploadedDriveSurfaceName = "Mountain Road Drive Surface";
 
-        // Traced directly on the real asphalt mountain road inside mountain_road.glb.
+        // Traced directly on the real asphalt mountain roads inside mountain_road.glb and mountain_road_2.glb.
         // Starts directly on the white start line road markings (-2, 19.28, 92),
         // drifts around the red-curbed North Hairpin, sprints down the touge straight,
         // sweeps the South Hairpin, curves through the yellow deceleration chicane,
-        // and finishes on the high-speed East mountain highway.
+        // crosses the high-speed highway connector onto Map 2, weaves through the panoramic
+        // ridge passes and canyon sweeps, and finishes at the 170m Mountain Summit peak!
         private static readonly Vector3[] UploadedMountainRoadPath =
         {
             // Start Line: White painted road markings at the North Pass entrance
@@ -78,7 +81,57 @@ namespace CarRace
             new Vector3(105.0f, 50.26f, 20.0f),
             new Vector3(118.0f, 51.41f, 38.0f),
             new Vector3(134.0f, 52.41f, 56.0f),
-            new Vector3(150.0f, 53.36f, 72.0f)
+            new Vector3(150.0f, 53.36f, 72.0f),
+
+            // Highway Connector from Map 1 into Map 2:
+            new Vector3(156.6f, 57.09f, 75.8f),
+            new Vector3(164.3f, 58.72f, 83.6f),
+            new Vector3(172.1f, 60.22f, 91.4f),
+            new Vector3(180.5f, 67.19f, 99.0f),
+            new Vector3(188.8f, 87.48f, 106.6f),
+
+            // Map 2: Elevated Ridge Pass & Vista Climbs:
+            new Vector3(203.8f, 108.14f, 111.8f),
+            new Vector3(219.2f, 121.17f, 116.8f),
+            new Vector3(225.7f, 131.95f, 125.1f),
+            new Vector3(231.8f, 146.38f, 133.5f),
+            new Vector3(235.2f, 150.29f, 142.9f),
+            new Vector3(238.4f, 150.86f, 152.4f),
+
+            // Map 2: Panoramic Valley Drop & High-Speed Sweepers:
+            new Vector3(252.5f, 126.12f, 157.9f),
+            new Vector3(268.0f, 109.45f, 162.9f),
+            new Vector3(281.0f, 93.35f, 168.8f),
+            new Vector3(294.1f, 83.16f, 174.7f),
+            new Vector3(301.9f, 76.59f, 182.5f),
+            new Vector3(308.7f, 71.37f, 190.7f),
+            new Vector3(310.6f, 69.21f, 200.6f),
+            new Vector3(311.7f, 67.10f, 210.9f),
+
+            // Map 2: Lower Canyon Hairpin & River Curves:
+            new Vector3(294.0f, 82.40f, 228.0f),
+            new Vector3(277.7f, 91.00f, 244.5f),
+            new Vector3(272.6f, 98.82f, 257.0f),
+            new Vector3(272.1f, 96.05f, 267.8f),
+            new Vector3(277.6f, 94.87f, 276.5f),
+            new Vector3(285.9f, 89.33f, 284.1f),
+            new Vector3(292.9f, 89.96f, 292.2f),
+            new Vector3(301.5f, 93.42f, 299.7f),
+
+            // Map 2: High-Mountain Ascent to Summit Peak:
+            new Vector3(312.9f, 103.74f, 306.2f),
+            new Vector3(324.1f, 108.10f, 312.8f),
+            new Vector3(328.2f, 113.02f, 321.9f),
+            new Vector3(331.9f, 120.68f, 331.2f),
+            new Vector3(344.4f, 130.82f, 337.3f),
+            new Vector3(357.0f, 147.65f, 343.4f),
+            new Vector3(363.5f, 158.41f, 351.6f),
+            new Vector3(369.8f, 167.54f, 360.0f),
+            new Vector3(380.7f, 173.85f, 366.7f),
+            new Vector3(391.0f, 171.28f, 373.5f),
+            new Vector3(396.9f, 171.86f, 382.0f),
+            // Summit Finish Line (Elevated 170m Peak):
+            new Vector3(402.1f, 169.87f, 390.8f)
         };
 
         public IReadOnlyList<Vector3> TrackCenters => centers;
@@ -137,6 +190,7 @@ namespace CarRace
             {
                 BuildUploadedLighting();
                 CleanUploadedDriveSurface();
+                BuildRoadConnector();
                 BuildPlayer();
                 BuildCamera();
                 return;
@@ -178,7 +232,8 @@ namespace CarRace
                    objectName.StartsWith("Mountain Ridge") ||
                    objectName.StartsWith("Mountain Foothill") ||
                    objectName.StartsWith("Mountain Snow") ||
-                   objectName == UploadedDriveSurfaceName;
+                   objectName == UploadedDriveSurfaceName ||
+                   objectName == UploadedConnectorName;
         }
 
         private void Update()
@@ -716,7 +771,9 @@ namespace CarRace
 
         private bool UsesUploadedMountainRoad()
         {
-            return uploadedMountainRoad || GameObject.Find(UploadedEnvironmentName) != null;
+            return uploadedMountainRoad ||
+                   GameObject.Find(UploadedEnvironmentName) != null ||
+                   GameObject.Find(UploadedEnvironment2Name) != null;
         }
 
         private void CleanUploadedDriveSurface()
@@ -729,15 +786,86 @@ namespace CarRace
             }
         }
 
+        private void BuildRoadConnector()
+        {
+            if (GameObject.Find(UploadedConnectorName) != null) return;
+            if (GameObject.Find(UploadedEnvironment2Name) == null) return;
+
+            GameObject connectorObj = new GameObject(UploadedConnectorName);
+            MeshFilter filter = connectorObj.AddComponent<MeshFilter>();
+            MeshRenderer renderer = connectorObj.AddComponent<MeshRenderer>();
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Material mat = new Material(shader) { color = new Color(0.12f, 0.13f, 0.14f) };
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.05f);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.35f);
+            renderer.sharedMaterial = mat;
+
+            Vector3[] spline = {
+                new Vector3(146.0f, 52.8f, 68.0f),
+                new Vector3(150.0f, 53.36f, 72.0f),
+                new Vector3(153.5f, 55.2f, 74.0f),
+                new Vector3(158.0f, 57.1f, 77.0f),
+                new Vector3(162.0f, 58.2f, 81.0f)
+            };
+
+            float width = 8.6f;
+            int count = spline.Length;
+            List<Vector3> verts = new List<Vector3>();
+            List<Vector3> norms = new List<Vector3>();
+            List<Vector2> uvs = new List<Vector2>();
+            List<int> tris = new List<int>();
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 cur = spline[i];
+                Vector3 fwd = (i < count - 1 ? spline[i + 1] - cur : cur - spline[i - 1]).normalized;
+                Vector3 rgt = Vector3.Cross(Vector3.up, fwd).normalized;
+                Vector3 up = Vector3.Cross(fwd, rgt).normalized;
+
+                verts.Add(cur - rgt * (width * 0.5f));
+                verts.Add(cur + rgt * (width * 0.5f));
+                norms.Add(up);
+                norms.Add(up);
+
+                float v = i / (float)(count - 1) * 3f;
+                uvs.Add(new Vector2(0f, v));
+                uvs.Add(new Vector2(1f, v));
+
+                if (i < count - 1)
+                {
+                    int baseIdx = i * 2;
+                    tris.Add(baseIdx);
+                    tris.Add(baseIdx + 1);
+                    tris.Add(baseIdx + 2);
+                    tris.Add(baseIdx + 1);
+                    tris.Add(baseIdx + 3);
+                    tris.Add(baseIdx + 2);
+                }
+            }
+
+            Mesh mesh = new Mesh { name = "RoadConnectorMesh" };
+            mesh.SetVertices(verts);
+            mesh.SetNormals(norms);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
+            filter.sharedMesh = mesh;
+
+            MeshCollider collider = connectorObj.AddComponent<MeshCollider>();
+            collider.sharedMesh = mesh;
+            connectorObj.isStatic = true;
+        }
+
         public void NotifyUploadedMountainRoadLoaded(GameObject environment)
         {
             if (environment == null || !Application.isPlaying) return;
 
-            environment.name = UploadedEnvironmentName;
             centers.Clear();
             BuildCenters();
             BuildUploadedLighting();
             CleanUploadedDriveSurface();
+            BuildRoadConnector();
 
             if (player == null)
             {
