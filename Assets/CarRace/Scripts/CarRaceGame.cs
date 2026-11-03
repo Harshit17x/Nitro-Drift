@@ -39,40 +39,42 @@ namespace CarRace
         private const string UploadedEnvironmentName = "Mountain Road Environment";
         private const string UploadedDriveSurfaceName = "Mountain Road Drive Surface";
 
-        // Measured along the continuous winding mountain road from the lower pass (X=-160)
-        // ascending through switchbacks to the upper pass (Z=-80).
+        // Traced directly on the real asphalt mountain road inside mountain_road.glb.
+        // Starts directly on the white start line road markings (-2, 19.28, 92),
+        // drifts around the red-curbed North Hairpin, sprints down the touge straight,
+        // sweeps the South Hairpin, curves through the yellow deceleration chicane,
+        // and finishes on the high-speed East mountain highway.
         private static readonly Vector3[] UploadedMountainRoadPath =
         {
-            new Vector3(-158.0f, 18.17f, 118.5f),
-            new Vector3(-144.0f, 19.49f, 116.0f),
-            new Vector3(-130.0f, 13.77f, 114.0f),
-            new Vector3(-115.0f, 13.02f, 96.0f),
-            new Vector3(-100.0f, 15.20f, 85.0f),
-            new Vector3(-85.0f, 17.67f, 75.0f),
-            new Vector3(-70.0f, 19.79f, 80.0f),
-            new Vector3(-55.0f, 23.74f, 100.0f),
-            new Vector3(-40.0f, 30.93f, 120.0f),
-            new Vector3(-25.0f, 36.51f, 135.0f),
-            new Vector3(-10.0f, 40.43f, 140.0f),
-            new Vector3(5.0f, 43.32f, 135.0f),
-            new Vector3(20.0f, 42.55f, 115.0f),
-            new Vector3(35.0f, 43.57f, 95.0f),
-            new Vector3(50.0f, 53.41f, 80.0f),
-            new Vector3(60.0f, 53.33f, 75.0f),
-            new Vector3(65.0f, 55.53f, 65.0f),
-            new Vector3(50.0f, 61.76f, 40.0f),
-            new Vector3(35.0f, 52.08f, 40.0f),
-            new Vector3(15.0f, 50.99f, 40.0f),
-            new Vector3(-5.0f, 41.09f, 40.0f),
-            new Vector3(-25.0f, 40.19f, 30.0f),
-            new Vector3(-45.0f, 55.27f, 15.0f),
-            new Vector3(-65.0f, 53.02f, 0.0f),
-            new Vector3(-80.0f, 48.75f, -20.0f),
-            new Vector3(-85.0f, 48.15f, -40.0f),
-            new Vector3(-55.0f, 62.38f, -70.0f),
-            new Vector3(-15.0f, 84.49f, -80.0f),
-            new Vector3(10.0f, 81.58f, -80.0f),
-            new Vector3(35.0f, 72.64f, -80.0f)
+            // Start Line: White painted road markings at the North Pass entrance
+            new Vector3(-2.0f, 19.28f, 92.0f),
+            new Vector3(2.0f, 20.47f, 112.0f),
+            new Vector3(10.0f, 21.77f, 126.0f),
+            new Vector3(20.0f, 22.37f, 126.0f),
+            new Vector3(27.0f, 22.76f, 114.0f),
+            new Vector3(29.0f, 26.99f, 96.0f),
+            new Vector3(24.0f, 19.10f, 76.0f),
+            new Vector3(16.0f, 22.00f, 54.0f),
+            new Vector3(5.0f, 27.02f, 32.0f),
+            new Vector3(-6.0f, 35.82f, 12.0f),
+            new Vector3(-14.0f, 33.10f, -10.0f),
+            new Vector3(-19.0f, 35.04f, -30.0f),
+            new Vector3(-19.0f, 36.65f, -50.0f),
+            new Vector3(-15.0f, 38.17f, -68.0f),
+            new Vector3(-3.0f, 49.07f, -76.0f),
+            new Vector3(8.0f, 46.31f, -72.0f),
+            new Vector3(10.0f, 50.06f, -55.0f),
+            new Vector3(9.0f, 48.27f, -35.0f),
+            new Vector3(14.0f, 48.65f, -16.0f),
+            new Vector3(25.0f, 48.89f, -6.0f),
+            new Vector3(38.0f, 49.01f, -10.0f),
+            new Vector3(58.0f, 49.41f, -9.0f),
+            new Vector3(76.0f, 49.42f, -6.0f),
+            new Vector3(88.0f, 47.76f, 4.0f),
+            new Vector3(105.0f, 50.26f, 20.0f),
+            new Vector3(118.0f, 51.41f, 38.0f),
+            new Vector3(134.0f, 52.41f, 56.0f),
+            new Vector3(150.0f, 53.36f, 72.0f)
         };
 
         public IReadOnlyList<Vector3> TrackCenters => centers;
@@ -204,15 +206,21 @@ namespace CarRace
         public void RespawnPlayer()
         {
             if (player == null || centers.Count == 0) return;
+            Vector3 startPos = centers[0] + Vector3.up * 0.72f;
+            GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
+            Quaternion startRot = Quaternion.LookRotation(forward, up);
+
+            player.transform.SetPositionAndRotation(startPos, startRot);
+
             Rigidbody body = player.Body;
             if (body != null)
             {
                 body.linearVelocity = Vector3.zero;
                 body.angularVelocity = Vector3.zero;
+                body.position = startPos;
+                body.rotation = startRot;
             }
-            player.transform.position = centers[0] + Vector3.up * 0.72f;
-            GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
-            player.transform.rotation = Quaternion.LookRotation(forward, up);
+            Physics.SyncTransforms();
             previousProgress = 0f;
             Camera.main?.GetComponent<CarRaceCamera>()?.SnapToTarget();
         }
@@ -673,9 +681,21 @@ namespace CarRace
                 if (player == null) player = carObject.AddComponent<CarRaceVehicle>();
             }
 
-            carObject.transform.position = centers[0] + Vector3.up * 0.72f;
+            Vector3 startPos = centers[0] + Vector3.up * 0.72f;
             GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
-            carObject.transform.rotation = Quaternion.LookRotation(forward, up);
+            Quaternion startRot = Quaternion.LookRotation(forward, up);
+
+            carObject.transform.SetPositionAndRotation(startPos, startRot);
+
+            Rigidbody body = player.Body ?? carObject.GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.position = startPos;
+                body.rotation = startRot;
+            }
+            Physics.SyncTransforms();
             player.Initialize();
         }
 
