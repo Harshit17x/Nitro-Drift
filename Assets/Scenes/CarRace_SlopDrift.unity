@@ -552,17 +552,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9334739dd85b24efaaaf03d5c328e9fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarRace.CarRaceVehicle
-  suspensionRestDist: 0.6
-  suspensionStrength: 55000
-  suspensionDamping: 4200
-  antiRollStrength: 9000
-  engineForce: 9200
-  reverseForce: 3600
-  brakeForce: 12000
-  steerAngle: 28
-  lateralGrip: 8.5
-  driftGrip: 3.8
-  maxSpeed: 58
+  suspensionRestDist: 0.42
+  suspensionTravel: 0.18
+  suspensionStrength: 30000
+  suspensionDamping: 4800
+  antiRollStrength: 3500
+  gravityMultiplier: 1.1
+  airborneGravityMultiplier: 2
+  groundAlignmentStrength: 6000
+  groundAlignmentDamping: 2200
+  downforceCoefficient: 0.3
+  maxGroundSeparationSpeed: 0.75
+  minimumGroundNormal: 0.3
+  engineForce: 5200
+  reverseForce: 2700
+  brakeForce: 10000
+  steerAngle: 26
+  lateralGrip: 7
+  driftGrip: 2.8
+  tireFriction: 1.15
+  driftFriction: 0.45
+  rollingResistance: 18
+  aerodynamicDrag: 1.2
+  steeringGain: 3.5
+  maxYawRate: 0.8
+  maxSpeed: 28
+  maxReverseSpeed: 9
+  throttleResponse: 5
+  steeringResponse: 8
 --- !u!54 &857937253
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -572,9 +589,9 @@ Rigidbody:
   m_GameObject: {fileID: 857937251}
   serializedVersion: 5
   m_Mass: 1250
-  m_LinearDamping: 0.08
-  m_AngularDamping: 3.5
-  m_CenterOfMass: {x: 0, y: -0.3, z: 0.02}
+  m_LinearDamping: 0.1
+  m_AngularDamping: 4.5
+  m_CenterOfMass: {x: 0, y: -0.38, z: 0.02}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
   m_IncludeLayers:
@@ -698,10 +715,10 @@ PhysicsMaterial:
   m_PrefabAsset: {fileID: 0}
   m_Name: MountainRoadSurfaceMat
   serializedVersion: 2
-  m_DynamicFriction: 0.05
-  m_StaticFriction: 0.05
+  m_DynamicFriction: 0.65
+  m_StaticFriction: 0.75
   m_Bounciness: 0
-  m_FrictionCombine: 2
+  m_FrictionCombine: 0
   m_BounceCombine: 0
 --- !u!1001 &1766965334
 PrefabInstance:

@@ -92,6 +92,7 @@ namespace CarRace
 
             if (UsesUploadedMountainRoad())
             {
+                CleanUploadedDriveSurface();
                 if (Application.isPlaying && GameObject.Find(UploadedEnvironmentName) == null)
                 {
                     if (GetComponent<MountainRoadRuntimeLoader>() == null)
@@ -131,7 +132,7 @@ namespace CarRace
             if (UsesUploadedMountainRoad())
             {
                 BuildUploadedLighting();
-                BuildUploadedDriveSurface();
+                CleanUploadedDriveSurface();
                 BuildPlayer();
                 BuildCamera();
                 return;
@@ -714,7 +715,7 @@ namespace CarRace
             return uploadedMountainRoad || GameObject.Find(UploadedEnvironmentName) != null;
         }
 
-        private void BuildUploadedDriveSurface()
+        private void CleanUploadedDriveSurface()
         {
             GameObject previous = GameObject.Find(UploadedDriveSurfaceName);
             if (previous != null)
@@ -722,70 +723,6 @@ namespace CarRace
                 if (Application.isPlaying) Destroy(previous);
                 else DestroyImmediate(previous);
             }
-
-            Mesh mesh = new Mesh { name = UploadedDriveSurfaceName + " Mesh" };
-            float halfWidth = roadWidth * 0.5f;
-            float barrierOffset = halfWidth + 0.6f;
-            float barrierHeight = 1.6f;
-
-            int sliceCount = centers.Count;
-            Vector3[] vertices = new Vector3[sliceCount * 4];
-            int[] triangles = new int[(sliceCount - 1) * 3 * 6];
-
-            int tIdx = 0;
-            for (int i = 0; i < sliceCount; i++)
-            {
-                GetRoadFrame(i, out _, out Vector3 right, out Vector3 up);
-                Vector3 center = centers[i];
-
-                vertices[i * 4 + 0] = center - right * barrierOffset + up * barrierHeight;
-                vertices[i * 4 + 1] = center - right * halfWidth + up * 0.04f;
-                vertices[i * 4 + 2] = center + right * halfWidth + up * 0.04f;
-                vertices[i * 4 + 3] = center + right * barrierOffset + up * barrierHeight;
-
-                if (i >= sliceCount - 1) continue;
-
-                int row = i * 4;
-                int nextRow = (i + 1) * 4;
-
-                // Left barrier quad
-                triangles[tIdx++] = row + 0;
-                triangles[tIdx++] = nextRow + 1;
-                triangles[tIdx++] = row + 1;
-                triangles[tIdx++] = row + 0;
-                triangles[tIdx++] = nextRow + 0;
-                triangles[tIdx++] = nextRow + 1;
-
-                // Road driving surface quad
-                triangles[tIdx++] = row + 1;
-                triangles[tIdx++] = nextRow + 2;
-                triangles[tIdx++] = row + 2;
-                triangles[tIdx++] = row + 1;
-                triangles[tIdx++] = nextRow + 1;
-                triangles[tIdx++] = nextRow + 2;
-
-                // Right barrier quad
-                triangles[tIdx++] = row + 2;
-                triangles[tIdx++] = nextRow + 3;
-                triangles[tIdx++] = row + 3;
-                triangles[tIdx++] = row + 2;
-                triangles[tIdx++] = nextRow + 2;
-                triangles[tIdx++] = nextRow + 3;
-            }
-
-            mesh.vertices = vertices;
-            mesh.triangles = triangles;
-            mesh.RecalculateNormals();
-
-            GameObject surface = new GameObject(UploadedDriveSurfaceName);
-            MeshCollider collider = surface.AddComponent<MeshCollider>();
-            collider.sharedMesh = mesh;
-            collider.material = new PhysicsMaterial("MountainRoadSurfaceMat")
-            {
-                staticFriction = 0.75f,
-                dynamicFriction = 0.65f,
-                frictionCombine = PhysicsMaterialCombine.Average
-            };
         }
 
         public void NotifyUploadedMountainRoadLoaded(GameObject environment)
@@ -796,7 +733,7 @@ namespace CarRace
             centers.Clear();
             BuildCenters();
             BuildUploadedLighting();
-            BuildUploadedDriveSurface();
+            CleanUploadedDriveSurface();
 
             if (player == null)
             {
