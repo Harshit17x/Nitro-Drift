@@ -24,6 +24,10 @@ namespace CarRace
         private GUIStyle titleStyle;
         private GUIStyle panelStyle;
         private GUIStyle textStyle;
+        private GUIStyle driftTitleStyle;
+        private GUIStyle driftScoreStyle;
+        private GUIStyle driftBoostStyle;
+        private GUIStyle driftValueStyle;
         private Material roadMaterial;
         private Material groundMaterial;
         private Material curbRedMaterial;
@@ -805,18 +809,30 @@ namespace CarRace
         {
             if (titleStyle == null) BuildStyles();
 
-            GUI.Box(new Rect(18f, 18f, 330f, 122f), GUIContent.none, panelStyle);
-            GUI.Label(new Rect(34f, 29f, 300f, 34f), "SLOP-DRIFT", titleStyle);
-            GUI.Label(new Rect(34f, 67f, 300f, 24f), $"SPEED   {player?.SpeedKph ?? 0f:000} km/h", textStyle);
-            GUI.Label(new Rect(34f, 91f, 300f, 24f), $"LAP     {Mathf.Min(lap, lapsToWin)}/{lapsToWin}", textStyle);
-            GUI.Label(new Rect(34f, 115f, 300f, 24f), $"TIME    {FormatTime(raceTime)}", textStyle);
-            GUI.Label(new Rect(20f, Screen.height - 50f, 560f, 30f), "WASD / ARROWS Drive    SPACE Drift    R Respawn    P Pause", textStyle);
+            GUI.Box(new Rect(18f, 18f, 330f, 146f), GUIContent.none, panelStyle);
+            GUI.Label(new Rect(34f, 27f, 300f, 32f), "SLOP-DRIFT", titleStyle);
+            GUI.Label(new Rect(34f, 62f, 300f, 22f), $"SPEED   {player?.SpeedKph ?? 0f:000} km/h", textStyle);
+            GUI.Label(new Rect(34f, 84f, 300f, 22f), $"DRIFT   {(int)(player?.DriftScore ?? 0f):N0} PTS", driftValueStyle);
+            GUI.Label(new Rect(34f, 106f, 300f, 22f), $"LAP     {Mathf.Min(lap, lapsToWin)}/{lapsToWin}", textStyle);
+            GUI.Label(new Rect(34f, 128f, 300f, 22f), $"TIME    {FormatTime(raceTime)}", textStyle);
+            GUI.Label(new Rect(20f, Screen.height - 50f, 600f, 30f), "WASD / ARROWS Drive    SPACE Drift / Handbrake    R Respawn    P Pause", textStyle);
+
+            if (player != null && player.IsDrifting)
+            {
+                GUI.Box(new Rect(Screen.width - 290f, 18f, 272f, 104f), GUIContent.none, panelStyle);
+                GUI.Label(new Rect(Screen.width - 275f, 26f, 240f, 32f), $"DRIFT!  {player.DriftAngle:00}°", driftTitleStyle);
+                GUI.Label(new Rect(Screen.width - 275f, 58f, 240f, 26f), $"+{(int)player.CurrentDriftPoints:N0}  x{player.DriftMultiplier} COMBO", driftScoreStyle);
+                if (player.DriftBoostCharge > 0.15f)
+                {
+                    GUI.Label(new Rect(Screen.width - 275f, 84f, 240f, 20f), $"EXIT BOOST  {(int)(player.DriftBoostCharge * 100f)}%", driftBoostStyle);
+                }
+            }
 
             if (finished)
             {
                 GUI.Box(new Rect(Screen.width * 0.5f - 190f, Screen.height * 0.5f - 78f, 380f, 156f), GUIContent.none, panelStyle);
                 GUI.Label(new Rect(Screen.width * 0.5f - 160f, Screen.height * 0.5f - 55f, 320f, 44f), "FINISH!", titleStyle);
-                GUI.Label(new Rect(Screen.width * 0.5f - 130f, Screen.height * 0.5f + 5f, 260f, 28f), FormatTime(raceTime), textStyle);
+                GUI.Label(new Rect(Screen.width * 0.5f - 130f, Screen.height * 0.5f + 5f, 260f, 28f), $"TIME: {FormatTime(raceTime)}  DRIFT: {(int)(player?.DriftScore ?? 0f):N0}", textStyle);
             }
         }
 
@@ -838,6 +854,33 @@ namespace CarRace
                 fontSize = 17,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white }
+            };
+            driftTitleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 26,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                normal = { textColor = new Color(1f, 0.65f, 0.1f) }
+            };
+            driftScoreStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 19,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                normal = { textColor = new Color(0.25f, 1f, 0.55f) }
+            };
+            driftBoostStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                normal = { textColor = new Color(0.2f, 0.85f, 1f) }
+            };
+            driftValueStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 17,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(1f, 0.85f, 0.3f) }
             };
         }
 

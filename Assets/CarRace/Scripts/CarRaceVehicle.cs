@@ -38,6 +38,15 @@ namespace CarRace
         [SerializeField] private float throttleResponse = 7f;
         [SerializeField] private float steeringResponse = 10f;
 
+        [Header("Drift System")]
+        [SerializeField] private float driftInitiationSpeed = 10f;
+        [SerializeField] private float driftEntryImpulse = 4.5f;
+        [SerializeField] private float driftSteerAuthority = 1.35f;
+        [SerializeField] private float driftCounterSteerGain = 4.8f;
+        [SerializeField] private float driftForwardPropulsion = 0.55f;
+        [SerializeField] private float driftExitBoostForce = 3500f;
+        [SerializeField] private float maxDriftAngle = 60f;
+
         // DeLorean wheel axle positions relative to the car root:
         // Front axles: local Y = -0.31, Z = 1.29, X = +/-0.79, tire bottom = -0.74
         // Rear axles: local Y = -0.27, Z = -1.24, X = +/-0.79, tire bottom = -0.76
@@ -71,6 +80,16 @@ namespace CarRace
         private bool paused;
         private bool finished;
 
+        private bool isDrifting;
+        private float currentDriftAngle;
+        private float rawSlipAngle;
+        private float totalDriftScore;
+        private float currentDriftComboPoints;
+        private int driftMultiplier = 1;
+        private float driftBoostCharge;
+        private float driftExitTimer;
+        private TrailRenderer[] skidTrails;
+
         private InputAction throttleAction;
         private InputAction brakeAction;
         private InputAction steerAction;
@@ -80,6 +99,12 @@ namespace CarRace
 
         public float SpeedKph => body == null ? 0f : body.linearVelocity.magnitude * 3.6f;
         public Rigidbody Body => body;
+        public bool IsDrifting => isDrifting;
+        public float DriftAngle => currentDriftAngle;
+        public float DriftScore => totalDriftScore;
+        public float CurrentDriftPoints => currentDriftComboPoints;
+        public int DriftMultiplier => driftMultiplier;
+        public float DriftBoostCharge => driftBoostCharge;
         public bool DebugOverride { get; set; }
         public float DebugThrottle { get; set; }
         public float DebugBrake { get; set; }
@@ -179,6 +204,51 @@ namespace CarRace
             }
 
             visualRoot.localRotation = importedModel ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.Euler(0f, 180f, 0f);
+            SetupSkidTrails();
+        }
+
+        private void SetupSkidTrails()
+        {
+            if (skidTrails != null && skidTrails.Length == 2 && skidTrails[0] != null) return;
+
+            skidTrails = new TrailRenderer[2];
+            Vector3[] rearAxleOffsets = { WheelAxles[2], WheelAxles[3] };
+
+            Shader trailShader = Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Unlit");
+            Material skidMat = new Material(trailShader) { color = new Color(0.12f, 0.12f, 0.12f, 0.65f) };
+
+            for (int i = 0; i < 2; i++)
+            {
+                string trailName = $"TireSkid_{i}";
+                Transform existing = transform.Find(trailName);
+                GameObject trailObj;
+                if (existing != null)
+                {
+                    trailObj = existing.gameObject;
+                }
+                else
+                {
+                    trailObj = new GameObject(trailName);
+                    trailObj.transform.SetParent(transform, false);
+                }
+
+                trailObj.transform.localPosition = new Vector3(rearAxleOffsets[i].x, -0.72f, rearAxleOffsets[i].z);
+
+                TrailRenderer tr = trailObj.GetComponent<TrailRenderer>();
+                if (tr == null)
+                {
+                    tr = trailObj.AddComponent<TrailRenderer>();
+                }
+                tr.startWidth = 0.28f;
+                tr.endWidth = 0.22f;
+                tr.time = 3.2f;
+                tr.minVertexDistance = 0.12f;
+                tr.sharedMaterial = skidMat;
+                tr.emitting = false;
+                tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                tr.receiveShadows = false;
+                skidTrails[i] = tr;
+            }
         }
 
         private void Update()
@@ -223,9 +293,6 @@ namespace CarRace
             ReadInput();
             SmoothInput();
 
-            // Unity's default gravity is the baseline. A small multiplier gives the
-            // vehicle a grounded, road-car feel without changing gravity for the rest
-            // of the project.
             if (gravityMultiplier > 1f)
             {
                 body.AddForce(Physics.gravity * body.mass * (gravityMultiplier - 1f), ForceMode.Force);
@@ -241,9 +308,6 @@ namespace CarRace
             const float rayStartHeight = 0.35f;
             float rayTotalLength = rayStartHeight + suspensionRestDist + suspensionTravel;
 
-            // Find contacts first. This lets the suspension force be shared across
-            // the wheels that are actually supporting the car and prevents a single
-            // curb or mesh edge from launching the whole vehicle.
             for (int i = 0; i < 4; i++)
             {
                 Vector3 axle = WheelAxles[i];
@@ -259,9 +323,6 @@ namespace CarRace
                     groundNormals[i] = groundNormal;
                     groundNormalSum += groundNormal;
 
-                    // Suspension length is measured from the axle to the road. At
-                    // rest length the spring is neutral; compression then builds
-                    // smoothly as the car settles onto the surface.
                     float distFromAxle = roadHit.distance - rayStartHeight;
                     float compression = Mathf.Clamp(suspensionRestDist - distFromAxle, 0f, suspensionTravel);
                     compressions[i] = compression;
@@ -270,6 +331,75 @@ namespace CarRace
 
             float gravityMagnitude = Mathf.Max(0.1f, Physics.gravity.magnitude);
             float maxWheelSupportForce = body.mass * gravityMagnitude * 1.5f;
+
+            Vector3 avgNormal = groundedCount > 0 ? (groundNormalSum / groundedCount).normalized : Vector3.up;
+            Vector3 surfaceFwd = Vector3.ProjectOnPlane(transform.forward, avgNormal).normalized;
+            Vector3 surfaceRgt = Vector3.Cross(avgNormal, surfaceFwd).normalized;
+            Vector3 planarVel = Vector3.ProjectOnPlane(body.linearVelocity, avgNormal);
+            float forwardSpeed = Vector3.Dot(planarVel, surfaceFwd);
+            float lateralSpeed = Vector3.Dot(planarVel, surfaceRgt);
+            float speedKph = body.linearVelocity.magnitude * 3.6f;
+
+            if (Mathf.Abs(forwardSpeed) > 1.2f)
+            {
+                rawSlipAngle = Mathf.Atan2(lateralSpeed, Mathf.Abs(forwardSpeed)) * Mathf.Rad2Deg;
+            }
+            else
+            {
+                rawSlipAngle = 0f;
+            }
+            currentDriftAngle = Mathf.Abs(rawSlipAngle);
+
+            // Drift Initiation & State Tracking
+            bool handbrakeDriftTrigger = handbrake && forwardSpeed > 2.5f && (Mathf.Abs(steer) > 0.05f || currentDriftAngle > 4f);
+            bool flickDriftTrigger = speedKph > driftInitiationSpeed && Mathf.Abs(steer) > 0.65f && currentDriftAngle > 8f;
+
+            if (!isDrifting && (handbrakeDriftTrigger || flickDriftTrigger))
+            {
+                isDrifting = true;
+                driftExitTimer = 0f;
+                float flickSign = steer != 0f ? Mathf.Sign(steer) : -Mathf.Sign(lateralSpeed);
+                body.AddTorque(avgNormal * (flickSign * driftEntryImpulse * body.mass * 0.45f), ForceMode.Impulse);
+            }
+
+            if (isDrifting)
+            {
+                if (currentDriftAngle > 6f && forwardSpeed > 1.8f)
+                {
+                    driftExitTimer = 0f;
+                    float angleBonus = Mathf.Clamp(currentDriftAngle / 12f, 1f, 4f);
+                    float speedBonus = Mathf.Clamp(speedKph / 25f, 1f, 3f);
+                    driftMultiplier = Mathf.Clamp(Mathf.FloorToInt(angleBonus * speedBonus * 0.75f), 1, 5);
+
+                    float pts = currentDriftAngle * (speedKph / 15f) * driftMultiplier * Time.fixedDeltaTime * 18f;
+                    currentDriftComboPoints += pts;
+                    totalDriftScore += pts;
+
+                    driftBoostCharge = Mathf.Clamp01(driftBoostCharge + Time.fixedDeltaTime * 0.35f);
+                }
+                else
+                {
+                    driftExitTimer += Time.fixedDeltaTime;
+                    if (driftExitTimer > 0.35f)
+                    {
+                        if (driftBoostCharge > 0.25f && forwardSpeed > 4.0f)
+                        {
+                            body.AddForce(surfaceFwd * (driftExitBoostForce * driftBoostCharge), ForceMode.Impulse);
+                        }
+                        isDrifting = false;
+                        driftBoostCharge = 0f;
+                        currentDriftComboPoints = 0f;
+                    }
+                }
+            }
+
+            // Tire Skid Marks
+            if (skidTrails != null && skidTrails.Length >= 2)
+            {
+                bool emit = isDrifting || handbrake || (currentDriftAngle > 10f && speedKph > 15f);
+                if (skidTrails[0] != null) skidTrails[0].emitting = wheelGrounded[2] && emit;
+                if (skidTrails[1] != null) skidTrails[1].emitting = wheelGrounded[3] && emit;
+            }
 
             for (int i = 0; i < 4; i++)
             {
@@ -286,8 +416,6 @@ namespace CarRace
                     maxWheelSupportForce);
                 body.AddForceAtPosition(suspDir * springF, axleWorld, ForceMode.Force);
 
-                // Keep tire forces in the road plane so a steep slope cannot turn
-                // engine power into unwanted lift.
                 bool isFront = i < 2;
                 float currentSteer = isFront ? steer * steerAngle : 0f;
                 Vector3 wheelFwd = Vector3.ProjectOnPlane(transform.forward, groundNormal);
@@ -297,22 +425,46 @@ namespace CarRace
                 Vector3 wheelRgt = Vector3.Cross(groundNormal, wheelFwd).normalized;
                 float wheelForwardSpeed = Vector3.Dot(wheelVel, wheelFwd);
 
-                // Lateral tire grip
+                // Lateral tire grip: Front stays gripped, Rear slips during drift/handbrake
                 float latVel = Vector3.Dot(wheelVel, wheelRgt);
-                float gripCoeff = isFront ? lateralGrip : (handbrake ? driftGrip : lateralGrip);
+                float gripCoeff;
+                if (isFront)
+                {
+                    gripCoeff = lateralGrip;
+                }
+                else
+                {
+                    if (isDrifting || handbrake)
+                    {
+                        gripCoeff = Mathf.Lerp(driftGrip, driftGrip * 0.55f, Mathf.Clamp01(throttle));
+                    }
+                    else
+                    {
+                        gripCoeff = lateralGrip;
+                    }
+                }
+
                 float desiredLatForce = latVel * gripCoeff * (body.mass * 0.25f);
-                float frictionCoeff = handbrake && !isFront ? driftFriction : tireFriction;
+                float frictionCoeff = (!isFront && (isDrifting || handbrake)) ? driftFriction : tireFriction;
                 float maxLatForce = Mathf.Max(springF * frictionCoeff, body.mass * 0.25f * gravityMagnitude * frictionCoeff);
                 Vector3 latForce = -wheelRgt * Mathf.Clamp(desiredLatForce, -maxLatForce, maxLatForce);
                 body.AddForceAtPosition(latForce, axleWorld, ForceMode.Force);
 
-                // Rear-biased drive with torque curve
+                // Rear-biased drive with drift tangent blending
                 if (throttle > 0f && wheelForwardSpeed < maxSpeed)
                 {
-                    float driveBias = isFront ? 0.35f : 0.65f;
+                    float driveBias = isFront ? 0.3f : 0.7f;
                     float speedRatio = Mathf.Clamp01(Mathf.Max(0f, wheelForwardSpeed) / maxSpeed);
                     float torqueFactor = Mathf.Lerp(1f, 0.3f, speedRatio);
-                    Vector3 driveF = wheelFwd * (engineForce * throttle * driveBias * torqueFactor);
+
+                    Vector3 driveDir = wheelFwd;
+                    if (!isFront && isDrifting && planarVel.sqrMagnitude > 4f)
+                    {
+                        // Slerp drive force along slide tangent to power around curves!
+                        driveDir = Vector3.Slerp(wheelFwd, planarVel.normalized, driftForwardPropulsion).normalized;
+                    }
+
+                    Vector3 driveF = driveDir * (engineForce * throttle * driveBias * torqueFactor);
                     body.AddForceAtPosition(driveF, axleWorld, ForceMode.Force);
                 }
 
@@ -338,7 +490,7 @@ namespace CarRace
                 }
             }
 
-            // Anti-roll bars transferring spring load across left and right axles
+            // Anti-roll bars
             if (wheelGrounded[0] && wheelGrounded[1])
             {
                 float frontAntiRoll = (compressions[0] - compressions[1]) * antiRollStrength;
@@ -354,9 +506,6 @@ namespace CarRace
 
             if (groundedCount > 0)
             {
-                Vector3 avgNormal = (groundNormalSum / groundedCount).normalized;
-                Vector3 planarVelocity = Vector3.ProjectOnPlane(body.linearVelocity, avgNormal);
-
                 if (groundedCount >= 2)
                 {
                     Vector3 tiltAxis = Vector3.Cross(transform.up, avgNormal);
@@ -365,19 +514,41 @@ namespace CarRace
                         tiltAxis * groundAlignmentStrength - rollPitchVelocity * groundAlignmentDamping,
                         ForceMode.Force);
 
-                    body.AddForce(-avgNormal * (planarVelocity.sqrMagnitude * downforceCoefficient + staticDownforce), ForceMode.Force);
-                    body.AddForce(-planarVelocity * planarVelocity.magnitude * aerodynamicDrag, ForceMode.Force);
+                    body.AddForce(-avgNormal * (planarVel.sqrMagnitude * downforceCoefficient + staticDownforce), ForceMode.Force);
+                    body.AddForce(-planarVel * planarVel.magnitude * aerodynamicDrag, ForceMode.Force);
 
-                    // Drive steering from a target yaw rate
-                    Vector3 surfaceForward = Vector3.ProjectOnPlane(transform.forward, avgNormal).normalized;
-                    float forwardSpeed = Vector3.Dot(body.linearVelocity, surfaceForward);
+                    // Steering yaw dynamics
                     float steerSpeed = Mathf.Max(Mathf.Abs(forwardSpeed), 2f);
                     float wheelBase = Mathf.Abs(WheelAxles[0].z - WheelAxles[2].z);
-                    float targetYawRate = steer * Mathf.Tan(steerAngle * Mathf.Deg2Rad) * steerSpeed / Mathf.Max(wheelBase, 0.1f);
+                    float effectiveSteerAngle = isDrifting ? steerAngle * driftSteerAuthority : steerAngle;
+                    float targetYawRate = steer * Mathf.Tan(effectiveSteerAngle * Mathf.Deg2Rad) * steerSpeed / Mathf.Max(wheelBase, 0.1f);
                     if (forwardSpeed < -0.5f) targetYawRate = -targetYawRate;
                     targetYawRate = Mathf.Clamp(targetYawRate, -maxYawRate, maxYawRate);
                     float currentYawRate = Vector3.Dot(body.angularVelocity, avgNormal);
                     body.AddTorque(avgNormal * ((targetYawRate - currentYawRate) * steeringGain), ForceMode.Acceleration);
+
+                    // Active Counter-Steer and Drift Dynamics
+                    if (isDrifting)
+                    {
+                        float counterSteer = steer * Mathf.Sign(lateralSpeed);
+                        if (counterSteer > 0f)
+                        {
+                            body.AddTorque(avgNormal * (steer * driftCounterSteerGain * 1000f), ForceMode.Force);
+                        }
+                        else if (Mathf.Abs(steer) < 0.08f)
+                        {
+                            float autoStabilize = -Mathf.Sign(lateralSpeed) * Mathf.Clamp01(currentDriftAngle / maxDriftAngle) * 0.35f;
+                            body.AddTorque(avgNormal * (autoStabilize * driftCounterSteerGain * 600f), ForceMode.Force);
+                        }
+
+                        // Anti-spinout catch
+                        if (currentDriftAngle > maxDriftAngle)
+                        {
+                            float excess = currentDriftAngle - maxDriftAngle;
+                            float catchTorque = -Mathf.Sign(lateralSpeed) * excess * 140f;
+                            body.AddTorque(avgNormal * catchTorque, ForceMode.Acceleration);
+                        }
+                    }
 
                     // Hill-hold when stopped on slope
                     if (throttle < 0.01f && brake < 0.01f && Mathf.Abs(forwardSpeed) < 0.4f)
@@ -388,7 +559,6 @@ namespace CarRace
             }
             else if (groundedCount == 0 && airborneGravityMultiplier > 1f)
             {
-                // Pull the car back down quickly if it briefly loses all four contacts
                 body.AddForce(Physics.gravity * body.mass * (airborneGravityMultiplier - 1f), ForceMode.Force);
             }
 
@@ -620,7 +790,19 @@ namespace CarRace
                 if (importedModel && baseWheelRotations != null && i < baseWheelRotations.Length)
                 {
                     bool isFront = i < 2;
-                    float steerYaw = isFront ? steer * steerAngle : 0f;
+                    float steerYaw = 0f;
+                    if (isFront)
+                    {
+                        if (isDrifting && currentDriftAngle > 5f)
+                        {
+                            float visualCounter = Mathf.Clamp(-rawSlipAngle * 0.7f, -steerAngle * 1.25f, steerAngle * 1.25f);
+                            steerYaw = Mathf.Lerp(steer * steerAngle, visualCounter, 0.7f);
+                        }
+                        else
+                        {
+                            steerYaw = steer * steerAngle;
+                        }
+                    }
                     // In FBX hierarchy, local X is the rolling axle, local Y is steering yaw
                     Quaternion steerRot = Quaternion.Euler(0f, steerYaw, 0f);
                     Quaternion rollRot = Quaternion.Euler(wheelRollAngle, 0f, 0f);
