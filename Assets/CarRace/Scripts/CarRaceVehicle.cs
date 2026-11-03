@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -6,24 +7,48 @@ namespace CarRace
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
     public sealed class CarRaceVehicle : MonoBehaviour
     {
+        [Header("Suspension & Dynamics")]
+        [SerializeField] private float suspensionRestDist = 0.52f;
+        [SerializeField] private float suspensionStrength = 55000f;
+        [SerializeField] private float suspensionDamping = 3800f;
+        [SerializeField] private float antiRollStrength = 6000f;
+
         [Header("Handling")]
-        [SerializeField] private float engineForce = 9200f;
-        [SerializeField] private float reverseForce = 3600f;
-        [SerializeField] private float brakeForce = 12000f;
-        [SerializeField] private float steeringTorque = 420f;
-        [SerializeField] private float lateralGrip = 8.5f;
-        [SerializeField] private float maxSpeed = 58f;
+        [SerializeField] private float engineForce = 8500f;
+        [SerializeField] private float reverseForce = 4500f;
+        [SerializeField] private float brakeForce = 18000f;
+        [SerializeField] private float steerAngle = 28f;
+        [SerializeField] private float lateralGrip = 14f;
+        [SerializeField] private float driftGrip = 3.6f;
+        [SerializeField] private float maxSpeed = 55f;
+
+        // DeLorean wheel axle positions relative to the car root:
+        // Front axles: local Y = -0.31, Z = 1.29, X = +/-0.79, tire bottom = -0.74
+        // Rear axles: local Y = -0.27, Z = -1.24, X = +/-0.79, tire bottom = -0.76
+        private static readonly Vector3[] WheelAxles =
+        {
+            new Vector3(-0.79f, -0.31f, 1.29f),  // 0: Front Left
+            new Vector3(0.79f, -0.31f, 1.29f),   // 1: Front Right
+            new Vector3(-0.79f, -0.27f, -1.24f), // 2: Rear Left
+            new Vector3(0.79f, -0.27f, -1.24f)   // 3: Rear Right
+        };
 
         private Rigidbody body;
         private Transform visualRoot;
         private bool importedModel;
         private Transform[] wheels;
+        private Vector3[] baseWheelPositions;
+        private Quaternion[] baseWheelRotations;
+        private float wheelRollAngle;
+        private int roadLayerMask;
+
         private float throttle;
         private float brake;
         private float steer;
         private bool handbrake;
         private bool paused;
         private bool finished;
+
         private InputAction throttleAction;
         private InputAction brakeAction;
         private InputAction steerAction;
@@ -33,6 +58,11 @@ namespace CarRace
 
         public float SpeedKph => body == null ? 0f : body.linearVelocity.magnitude * 3.6f;
         public Rigidbody Body => body;
+
+        private void Awake()
+        {
+            Initialize();
+        }
 
         private void OnEnable()
         {
@@ -61,35 +91,46 @@ namespace CarRace
                 body = gameObject.AddComponent<Rigidbody>();
             }
 
-            body.mass = 1120f;
+            body.mass = 1250f;
             body.isKinematic = false;
             body.detectCollisions = true;
             body.useGravity = true;
-            body.linearDamping = 0.18f;
-            body.angularDamping = 4f;
+            body.linearDamping = 0.08f;
+            body.angularDamping = 3.5f;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            body.centerOfMass = new Vector3(0f, -0.65f, 0.05f);
+            body.centerOfMass = new Vector3(0f, -0.30f, 0.02f);
             body.WakeUp();
+
+            int ignoreRaycast = LayerMask.NameToLayer("Ignore Raycast");
+            gameObject.layer = ignoreRaycast;
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                t.gameObject.layer = ignoreRaycast;
+            }
+            roadLayerMask = ~(1 << ignoreRaycast);
 
             BoxCollider col = GetComponent<BoxCollider>();
             if (col != null)
             {
-                col.size = new Vector3(2.1f, 1.25f, 4.4f);
-                col.center = new Vector3(0f, 0.65f, 0f);
+                // Collider covers upper cabin (bottom at Y = +0.125), keeping it well above the road (Y = -0.75)
+                col.size = new Vector3(1.95f, 0.65f, 4.3f);
+                col.center = new Vector3(0f, 0.45f, 0f);
                 col.material = new PhysicsMaterial("VehiclePhysicMat")
                 {
-                    staticFriction = 0.05f,
-                    dynamicFriction = 0.05f,
-                    frictionCombine = PhysicsMaterialCombine.Minimum
+                    staticFriction = 0.45f,
+                    dynamicFriction = 0.35f,
+                    frictionCombine = PhysicsMaterialCombine.Average
                 };
             }
+
             visualRoot = transform.Find("ImportedDelorean");
             importedModel = visualRoot != null;
             if (!importedModel)
             {
                 visualRoot = transform.Find("ClassicMuscleVisual");
             }
+
             if (visualRoot == null)
             {
                 ClearVisual();
@@ -100,9 +141,6 @@ namespace CarRace
                 CacheWheels();
             }
 
-            // glTFast exposes the source FBX conversion as a +90-degree X rotation on the
-            // imported hierarchy. Cancel it at the visual root so the DeLorean lies on its
-            // wheels while its front remains aligned with the physics body's +Z direction.
             visualRoot.localRotation = importedModel ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.Euler(0f, 180f, 0f);
         }
 
@@ -125,73 +163,146 @@ namespace CarRace
                 Time.timeScale = paused ? 0f : 1f;
             }
 
-            if (respawnPressed || transform.position.y < -10f)
+            if (respawnPressed)
             {
-                FindAnyObjectByType<CarRaceGame>()?.RespawnPlayer();
+                CarRaceGame game = FindAnyObjectByType<CarRaceGame>();
+                game?.RespawnPlayer();
             }
+
+            float forwardSpeed = body != null ? Vector3.Dot(body.linearVelocity, transform.forward) : 0f;
+            AnimateWheels(forwardSpeed);
         }
 
         private void FixedUpdate()
         {
             if (body == null || paused || finished) return;
+            if (body.IsSleeping()) body.WakeUp();
 
             ReadInput();
-            Vector3 localVelocity = transform.InverseTransformDirection(body.linearVelocity);
-            float forwardSpeed = localVelocity.z;
-            float speedRatio = Mathf.Clamp01(body.linearVelocity.magnitude / maxSpeed);
 
-            // Upright stabilization to keep vehicle planted on mountain road slopes
-            Vector3 currentUp = transform.up;
-            Vector3 uprightAxis = Vector3.Cross(currentUp, Vector3.up);
-            body.AddTorque(uprightAxis * (body.mass * 35f), ForceMode.Force);
+            Vector3 groundNormalSum = Vector3.zero;
+            int groundedCount = 0;
+            float[] compressions = new float[4];
+            bool[] wheelGrounded = new bool[4];
 
-            if (throttle > 0f)
+            const float rayStartHeight = 0.40f;
+            const float rayTotalLength = 1.10f;
+            float forwardSpeed = Vector3.Dot(body.linearVelocity, transform.forward);
+
+            for (int i = 0; i < 4; i++)
             {
-                body.AddForce(transform.forward * (engineForce * throttle * (1f - speedRatio * 0.55f)), ForceMode.Force);
-            }
+                Vector3 axle = WheelAxles[i];
+                Vector3 rayOrigin = transform.TransformPoint(axle + Vector3.up * rayStartHeight);
 
-            if (brake > 0f)
-            {
-                if (forwardSpeed > 1f)
+                RaycastHit[] hits = Physics.RaycastAll(rayOrigin, -transform.up, rayTotalLength, roadLayerMask, QueryTriggerInteraction.Ignore);
+                Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+                bool grounded = false;
+                RaycastHit roadHit = default;
+                for (int h = 0; h < hits.Length; h++)
                 {
-                    body.AddForce(-transform.forward * brakeForce * brake, ForceMode.Force);
+                    if (hits[h].collider.transform.root == transform.root) continue;
+                    roadHit = hits[h];
+                    grounded = true;
+                    break;
                 }
-                else
+
+                if (grounded)
                 {
-                    body.AddForce(-transform.forward * reverseForce * brake, ForceMode.Force);
+                    groundedCount++;
+                    wheelGrounded[i] = true;
+                    groundNormalSum += roadHit.normal;
+
+                    // Distance from axle down to road
+                    float distFromAxle = roadHit.distance - rayStartHeight;
+                    float compression = Mathf.Max(0f, suspensionRestDist - distFromAxle);
+                    compressions[i] = compression;
+
+                    // Spring + damper force applied at axle center (in plane with center of mass)
+                    Vector3 axleWorld = transform.TransformPoint(axle);
+                    Vector3 wheelVel = body.GetPointVelocity(axleWorld);
+                    float springVel = Vector3.Dot(wheelVel, transform.up);
+                    float springF = Mathf.Max(0f, (compression * suspensionStrength) - (springVel * suspensionDamping));
+                    body.AddForceAtPosition(transform.up * springF, axleWorld);
+
+                    // Wheel steering orientation
+                    bool isFront = i < 2;
+                    float currentSteer = isFront ? steer * steerAngle : 0f;
+                    Vector3 wheelFwd = Quaternion.AngleAxis(currentSteer, transform.up) * transform.forward;
+                    Vector3 wheelRgt = Vector3.Cross(transform.up, wheelFwd);
+
+                    // Lateral tire friction (sharp road grip / controlled drifting with handbrake)
+                    float latVel = Vector3.Dot(wheelVel, wheelRgt);
+                    float gripCoeff = isFront ? lateralGrip : (handbrake ? driftGrip : lateralGrip);
+                    Vector3 latForce = -wheelRgt * Mathf.Clamp(latVel * gripCoeff * (body.mass * 0.25f) * 0.15f, -12000f, 12000f);
+                    body.AddForceAtPosition(latForce, axleWorld);
+
+                    // Longitudinal Drive / Brake force
+                    if (throttle > 0f && forwardSpeed < maxSpeed)
+                    {
+                        float driveBias = isFront ? 0.35f : 0.65f;
+                        Vector3 driveF = wheelFwd * (engineForce * throttle * driveBias);
+                        body.AddForceAtPosition(driveF, axleWorld);
+                    }
+
+                    if (brake > 0f)
+                    {
+                        if (forwardSpeed > 0.5f)
+                        {
+                            Vector3 brakeF = -wheelFwd * (brakeForce * brake * 0.25f);
+                            body.AddForceAtPosition(brakeF, axleWorld);
+                        }
+                        else if (forwardSpeed > -maxSpeed * 0.3f)
+                        {
+                            Vector3 revF = -wheelFwd * (reverseForce * brake * 0.25f);
+                            body.AddForceAtPosition(revF, axleWorld);
+                        }
+                    }
+
+                    // Rolling resistance when coasting
+                    if (throttle == 0f && brake == 0f && Mathf.Abs(forwardSpeed) > 0.1f)
+                    {
+                        Vector3 rollF = -wheelFwd * (forwardSpeed * 100f);
+                        body.AddForceAtPosition(rollF, axleWorld);
+                    }
                 }
             }
 
-            if (throttle > 0f || brake > 0f)
+            // Anti-roll bars transferring spring load across left and right axles
+            if (wheelGrounded[0] && wheelGrounded[1])
             {
-                float targetSpeed = throttle > 0f ? maxSpeed * throttle : (forwardSpeed > 1f ? 0f : -maxSpeed * 0.35f);
-                float acceleration = (throttle > 0f ? engineForce : brakeForce) / body.mass * 2.2f;
-                localVelocity.z = Mathf.MoveTowards(forwardSpeed, targetSpeed, acceleration * Time.fixedDeltaTime);
-                body.linearVelocity = transform.TransformDirection(localVelocity);
+                float frontAntiRoll = (compressions[0] - compressions[1]) * antiRollStrength;
+                body.AddForceAtPosition(-transform.up * frontAntiRoll, transform.TransformPoint(WheelAxles[0]));
+                body.AddForceAtPosition(transform.up * frontAntiRoll, transform.TransformPoint(WheelAxles[1]));
+            }
+            if (wheelGrounded[2] && wheelGrounded[3])
+            {
+                float rearAntiRoll = (compressions[2] - compressions[3]) * antiRollStrength;
+                body.AddForceAtPosition(-transform.up * rearAntiRoll, transform.TransformPoint(WheelAxles[2]));
+                body.AddForceAtPosition(transform.up * rearAntiRoll, transform.TransformPoint(WheelAxles[3]));
             }
 
-            float steeringScale = Mathf.Lerp(0.35f, 1f, Mathf.Clamp01(body.linearVelocity.magnitude / 10f));
-            float steeringRate = steeringTorque * 0.18f * steeringScale * (handbrake ? 1.25f : 1f);
-            if (Mathf.Abs(steer) > 0.01f)
+            // Ground-normal stabilization (aligns to the actual ROAD bank/slope, never world up)
+            if (groundedCount >= 2)
             {
-                Quaternion steeringRotation = Quaternion.AngleAxis(steer * steeringRate * Time.fixedDeltaTime, Vector3.up);
-                body.MoveRotation(steeringRotation * body.rotation);
+                Vector3 avgNormal = (groundNormalSum / groundedCount).normalized;
+                Vector3 tiltAxis = Vector3.Cross(transform.up, avgNormal);
+                body.AddTorque(tiltAxis * (body.mass * 18f), ForceMode.Force);
+
+                // Aerodynamic downforce gluing the car to the mountain road at speed
+                body.AddForce(-avgNormal * (body.linearVelocity.sqrMagnitude * 0.03f + 150f), ForceMode.Force);
+
+                // Crisp steering yaw torque assist
+                float steerSpeedFactor = Mathf.Clamp01(body.linearVelocity.magnitude / 3.5f);
+                float yawRate = steer * (handbrake ? 380f : 240f) * steerSpeedFactor;
+                body.AddTorque(transform.up * yawRate, ForceMode.Force);
             }
 
-            float torque = steer * steeringTorque * steeringScale * (handbrake ? 1.35f : 1f);
-            body.AddTorque(Vector3.up * torque * 0.15f, ForceMode.Force);
-
-            Vector3 lateralVelocity = Vector3.Project(body.linearVelocity, transform.right);
-            float grip = handbrake ? lateralGrip * 0.2f : lateralGrip;
-            body.AddForce(-lateralVelocity * grip, ForceMode.Force);
-            body.AddForce(-transform.up * (body.linearVelocity.sqrMagnitude * 0.022f), ForceMode.Force);
-
+            // Speed limit clamp
             if (body.linearVelocity.magnitude > maxSpeed)
             {
                 body.linearVelocity = body.linearVelocity.normalized * maxSpeed;
             }
-
-            AnimateWheels(forwardSpeed);
         }
 
         private void ReadInput()
@@ -282,7 +393,68 @@ namespace CarRace
         public void SetFinished(bool value)
         {
             finished = value;
-            if (value) body.linearVelocity *= 0.25f;
+            if (value && body != null) body.linearVelocity *= 0.25f;
+        }
+
+        private void CacheWheels()
+        {
+            wheels = new Transform[4];
+            baseWheelPositions = new Vector3[4];
+            baseWheelRotations = new Quaternion[4];
+
+            if (importedModel)
+            {
+                wheels[0] = transform.Find("ImportedDelorean/FINAL_MODEL_BTTF.fbx/RootNode/Object_3/_rootJoint/Wheel1A_3D_00/3DWheel Front L");
+                wheels[1] = transform.Find("ImportedDelorean/FINAL_MODEL_BTTF.fbx/RootNode/Object_3/_rootJoint/Wheel1A_3D_00/3DWheel Front R");
+                wheels[2] = transform.Find("ImportedDelorean/FINAL_MODEL_BTTF.fbx/RootNode/Object_3/_rootJoint/Wheel1A_3D_00/3DWheel Rear L");
+                wheels[3] = transform.Find("ImportedDelorean/FINAL_MODEL_BTTF.fbx/RootNode/Object_3/_rootJoint/Wheel1A_3D_00/3DWheel Rear R");
+            }
+            else if (visualRoot != null)
+            {
+                for (int i = 0; i < wheels.Length; i++)
+                {
+                    wheels[i] = visualRoot.Find($"Wheel_{i}");
+                }
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (wheels[i] != null)
+                {
+                    baseWheelPositions[i] = wheels[i].localPosition;
+                    baseWheelRotations[i] = wheels[i].localRotation;
+                }
+            }
+        }
+
+        private void AnimateWheels(float forwardSpeed)
+        {
+            if (wheels == null) return;
+            wheelRollAngle += forwardSpeed * (Time.deltaTime / 0.35f) * Mathf.Rad2Deg;
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (wheels[i] == null) continue;
+
+                if (importedModel && baseWheelRotations != null && i < baseWheelRotations.Length)
+                {
+                    bool isFront = i < 2;
+                    float steerYaw = isFront ? steer * steerAngle : 0f;
+                    // In FBX hierarchy, local X is the rolling axle, local Y is steering yaw
+                    Quaternion steerRot = Quaternion.Euler(0f, steerYaw, 0f);
+                    Quaternion rollRot = Quaternion.Euler(wheelRollAngle, 0f, 0f);
+                    wheels[i].localRotation = steerRot * rollRot * baseWheelRotations[i];
+
+                    if (baseWheelPositions != null && i < baseWheelPositions.Length)
+                    {
+                        wheels[i].localPosition = baseWheelPositions[i];
+                    }
+                }
+                else
+                {
+                    wheels[i].Rotate(Vector3.right, forwardSpeed * 0.08f, Space.Self);
+                }
+            }
         }
 
         private void BuildVisual()
@@ -341,6 +513,8 @@ namespace CarRace
             CreatePart(PrimitiveType.Cylinder, "ExhaustRight", new Vector3(0.62f, 0.47f, 2.4f), new Vector3(0.13f, 0.2f, 0.13f), chromeMaterial, Quaternion.Euler(90f, 0f, 0f));
 
             wheels = new Transform[4];
+            baseWheelPositions = new Vector3[4];
+            baseWheelRotations = new Quaternion[4];
             Vector3[] wheelPositions =
             {
                 new Vector3(-1.1f, 0.43f, -1.35f), new Vector3(1.1f, 0.43f, -1.35f),
@@ -358,6 +532,8 @@ namespace CarRace
             Quaternion axleRotation = Quaternion.Euler(0f, 0f, 90f);
             GameObject tyre = CreatePart(PrimitiveType.Cylinder, $"Wheel_{index}", position, new Vector3(0.58f, 0.23f, 0.58f), tyreMaterial, axleRotation);
             wheels[index] = tyre.transform;
+            baseWheelPositions[index] = tyre.transform.localPosition;
+            baseWheelRotations[index] = tyre.transform.localRotation;
 
             float outside = position.x < 0f ? -0.255f : 0.255f;
             Vector3 facePosition = position + Vector3.right * outside;
@@ -378,15 +554,6 @@ namespace CarRace
             CreatePart(PrimitiveType.Cube, $"Caliper_{index}", caliperPosition, new Vector3(0.045f, 0.16f, 0.1f), caliperMaterial);
         }
 
-        private void CacheWheels()
-        {
-            wheels = new Transform[4];
-            for (int i = 0; i < wheels.Length; i++)
-            {
-                wheels[i] = visualRoot.Find($"Wheel_{i}");
-            }
-        }
-
         private void ClearVisual()
         {
             for (int i = transform.childCount - 1; i >= 0; i--)
@@ -398,6 +565,8 @@ namespace CarRace
 
             visualRoot = null;
             wheels = null;
+            baseWheelPositions = null;
+            baseWheelRotations = null;
         }
 
         private GameObject CreatePart(PrimitiveType type, string name, Vector3 localPosition, Vector3 localScale, Material material, Quaternion? rotation = null)
@@ -417,16 +586,6 @@ namespace CarRace
                 else DestroyImmediate(collider);
             }
             return part;
-        }
-
-        private void AnimateWheels(float forwardSpeed)
-        {
-            if (wheels == null) return;
-            float spin = forwardSpeed * 0.08f;
-            foreach (Transform wheel in wheels)
-            {
-                if (wheel != null) wheel.Rotate(Vector3.right, spin, Space.Self);
-            }
         }
 
         private static Material MakeMaterial(Color color, float metallic, float smoothness)

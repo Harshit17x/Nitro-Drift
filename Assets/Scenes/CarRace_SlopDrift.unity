@@ -119,19 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!134 &4193312
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: VehiclePhysicMat
-  serializedVersion: 2
-  m_DynamicFriction: 0.05
-  m_StaticFriction: 0.05
-  m_Bounciness: 0
-  m_FrictionCombine: 2
-  m_BounceCombine: 0
 --- !u!43 &160107253
 Mesh:
   m_ObjectHideFlags: 0
@@ -321,6 +308,7 @@ GameObject:
   m_Component:
   - component: {fileID: 503719250}
   - component: {fileID: 503719249}
+  - component: {fileID: 503719251}
   m_Layer: 0
   m_Name: Race Sun
   m_TagString: Untagged
@@ -408,6 +396,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &503719251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 503719248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &841889129
 GameObject:
   m_ObjectHideFlags: 0
@@ -498,7 +515,7 @@ Transform:
   m_GameObject: {fileID: 841889129}
   serializedVersion: 2
   m_LocalRotation: {x: 0.04867509, y: 0.08421496, z: -0.004118737, w: 0.99524957}
-  m_LocalPosition: {x: -2.9394987, y: 21.886679, z: 86.488266}
+  m_LocalPosition: {x: -2.9394987, y: 21.92668, z: 86.488266}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -516,7 +533,7 @@ GameObject:
   - component: {fileID: 857937254}
   - component: {fileID: 857937253}
   - component: {fileID: 857937252}
-  m_Layer: 0
+  m_Layer: 2
   m_Name: Player Rally Car
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -535,11 +552,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9334739dd85b24efaaaf03d5c328e9fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarRace.CarRaceVehicle
+  suspensionRestDist: 0.6
+  suspensionStrength: 55000
+  suspensionDamping: 4200
+  antiRollStrength: 9000
   engineForce: 9200
   reverseForce: 3600
   brakeForce: 12000
-  steeringTorque: 420
+  steerAngle: 28
   lateralGrip: 8.5
+  driftGrip: 3.8
   maxSpeed: 58
 --- !u!54 &857937253
 Rigidbody:
@@ -549,10 +571,10 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 857937251}
   serializedVersion: 5
-  m_Mass: 1120
-  m_LinearDamping: 0.18
-  m_AngularDamping: 4
-  m_CenterOfMass: {x: 0, y: -0.65, z: 0.05}
+  m_Mass: 1250
+  m_LinearDamping: 0.08
+  m_AngularDamping: 3.5
+  m_CenterOfMass: {x: 0, y: -0.3, z: 0.02}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
   m_IncludeLayers:
@@ -575,7 +597,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 857937251}
-  m_Material: {fileID: 4193312}
+  m_Material: {fileID: 1191558034}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -587,8 +609,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.1, y: 1.25, z: 4.4}
-  m_Center: {x: 0, y: 0.65, z: 0}
+  m_Size: {x: 1.95, y: 0.65, z: 4.3}
+  m_Center: {x: 0, y: 0.45, z: 0}
 --- !u!4 &857937255
 Transform:
   m_ObjectHideFlags: 0
@@ -597,8 +619,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 857937251}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.027886553, y: 0.08428264, z: 0.0023596766, w: 0.9960488}
-  m_LocalPosition: {x: -2, y: 20, z: 92}
+  m_LocalRotation: {x: -0.010975815, y: 0.09853163, z: 0.0010868199, w: 0.99507284}
+  m_LocalPosition: {x: -2, y: 20.02, z: 92}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -655,6 +677,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!134 &1191558034
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: VehiclePhysicMat
+  serializedVersion: 2
+  m_DynamicFriction: 0.35
+  m_StaticFriction: 0.45
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!134 &1564526316
 PhysicsMaterial:
   m_ObjectHideFlags: 0

@@ -79,6 +79,11 @@ namespace CarRace
 
         public IReadOnlyList<Vector3> TrackCenters => centers;
 
+        private void OnEnable()
+        {
+            BuildCenters();
+        }
+
         private void Awake()
         {
             Application.runInBackground = true;
@@ -205,20 +210,22 @@ namespace CarRace
 
         public void RespawnPlayer()
         {
+            if (centers.Count == 0) BuildCenters();
             if (player == null || centers.Count == 0) return;
-            Vector3 startPos = centers[0] + Vector3.up * 0.72f;
+            Vector3 startPos = centers[0] + Vector3.up * 0.76f;
             GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
             Quaternion startRot = Quaternion.LookRotation(forward, up);
 
             player.transform.SetPositionAndRotation(startPos, startRot);
 
-            Rigidbody body = player.Body;
+            Rigidbody body = player.Body ?? player.GetComponent<Rigidbody>();
             if (body != null)
             {
                 body.linearVelocity = Vector3.zero;
                 body.angularVelocity = Vector3.zero;
                 body.position = startPos;
                 body.rotation = startRot;
+                body.WakeUp();
             }
             Physics.SyncTransforms();
             previousProgress = 0f;
@@ -390,16 +397,19 @@ namespace CarRace
 
         private void ReconnectSavedScene()
         {
+            BuildCenters();
             GameObject carObject = GameObject.Find("Player Rally Car");
             if (carObject != null)
             {
                 player = carObject.GetComponent<CarRaceVehicle>();
+                if (player == null) player = carObject.AddComponent<CarRaceVehicle>();
             }
 
             if (player != null)
             {
                 player.Initialize();
                 BuildCamera();
+                RespawnPlayer();
             }
         }
 
@@ -681,7 +691,7 @@ namespace CarRace
                 if (player == null) player = carObject.AddComponent<CarRaceVehicle>();
             }
 
-            Vector3 startPos = centers[0] + Vector3.up * 0.72f;
+            Vector3 startPos = centers[0] + Vector3.up * 0.76f;
             GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
             Quaternion startRot = Quaternion.LookRotation(forward, up);
 
@@ -772,9 +782,9 @@ namespace CarRace
             collider.sharedMesh = mesh;
             collider.material = new PhysicsMaterial("MountainRoadSurfaceMat")
             {
-                staticFriction = 0.05f,
-                dynamicFriction = 0.05f,
-                frictionCombine = PhysicsMaterialCombine.Minimum
+                staticFriction = 0.75f,
+                dynamicFriction = 0.65f,
+                frictionCombine = PhysicsMaterialCombine.Average
             };
         }
 
