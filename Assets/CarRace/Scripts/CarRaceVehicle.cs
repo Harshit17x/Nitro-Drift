@@ -16,6 +16,7 @@ namespace CarRace
 
         private Rigidbody body;
         private Transform visualRoot;
+        private bool importedModel;
         private Transform[] wheels;
         private float throttle;
         private float brake;
@@ -70,7 +71,12 @@ namespace CarRace
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.centerOfMass = new Vector3(0f, -0.45f, 0.1f);
             body.WakeUp();
-            visualRoot = transform.Find("ClassicMuscleVisual");
+            visualRoot = transform.Find("ImportedDelorean");
+            importedModel = visualRoot != null;
+            if (!importedModel)
+            {
+                visualRoot = transform.Find("ClassicMuscleVisual");
+            }
             if (visualRoot == null)
             {
                 ClearVisual();
@@ -81,9 +87,10 @@ namespace CarRace
                 CacheWheels();
             }
 
-            // The vehicle drives along +Z; the model's hood and headlights are authored on -Z.
-            // Flip only the visual root so physics, steering, and the chase camera keep +Z forward.
-            visualRoot.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            // glTFast exposes the source FBX conversion as a +90-degree X rotation on the
+            // imported hierarchy. Cancel it at the visual root so the DeLorean lies on its
+            // wheels while its front remains aligned with the physics body's +Z direction.
+            visualRoot.localRotation = importedModel ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.Euler(0f, 180f, 0f);
         }
 
         private void Update()
@@ -398,7 +405,10 @@ namespace CarRace
         {
             if (wheels == null) return;
             float spin = forwardSpeed * 0.08f;
-            foreach (Transform wheel in wheels) wheel.Rotate(Vector3.right, spin, Space.Self);
+            foreach (Transform wheel in wheels)
+            {
+                if (wheel != null) wheel.Rotate(Vector3.right, spin, Space.Self);
+            }
         }
 
         private static Material MakeMaterial(Color color, float metallic, float smoothness)

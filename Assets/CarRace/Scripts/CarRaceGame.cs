@@ -13,6 +13,7 @@ namespace CarRace
         [SerializeField] private float trackRadiusZ = 44f;
         [SerializeField] private float roadWidth = 8f;
         [SerializeField] private int lapsToWin = 1;
+        [SerializeField] private bool uploadedMountainRoad;
 
         private readonly List<Vector3> centers = new();
         private CarRaceVehicle player;
@@ -35,12 +36,54 @@ namespace CarRace
         private Material snowMaterial;
         private Material guardrailMaterial;
 
+        private const string UploadedEnvironmentName = "Mountain Road Environment";
+        private const string UploadedDriveSurfaceName = "Mountain Road Drive Surface";
+
+        // The scan contains several stacked road passes. These points follow the
+        // continuous lower pass from the left edge of the scan to the right edge.
+        private static readonly Vector3[] UploadedMountainRoadPath =
+        {
+            new Vector3(-158f, -129f, 53f),
+            new Vector3(-142f, -120f, 51f),
+            new Vector3(-124f, -109f, 46f),
+            new Vector3(-106f, -92f, 44f),
+            new Vector3(-88f, -78f, 42f),
+            new Vector3(-70f, -74f, 40f),
+            new Vector3(-52f, -126f, 36f),
+            new Vector3(-34f, -150f, 46f),
+            new Vector3(-16f, -155f, 38f),
+            new Vector3(2f, -142f, 26f),
+            new Vector3(20f, -110f, 15f),
+            new Vector3(38f, -82f, 10f),
+            new Vector3(56f, -76f, 8f),
+            new Vector3(74f, -84f, 7f),
+            new Vector3(92f, -58f, 3f),
+            new Vector3(110f, -66f, 1f),
+            new Vector3(128f, -53f, -5f),
+            new Vector3(146f, -48f, -9f),
+            new Vector3(160f, -42f, -11f)
+        };
+
         public IReadOnlyList<Vector3> TrackCenters => centers;
 
         private void Awake()
         {
             Time.timeScale = 1f;
             BuildCenters();
+
+            if (UsesUploadedMountainRoad())
+            {
+                if (Application.isPlaying && GameObject.Find(UploadedEnvironmentName) == null)
+                {
+                    if (GetComponent<MountainRoadRuntimeLoader>() == null)
+                    {
+                        gameObject.AddComponent<MountainRoadRuntimeLoader>();
+                    }
+                }
+
+                ReconnectSavedScene();
+                return;
+            }
 
             // The scene is authored in edit mode so it is visible in the Scene view.
             // When Unity reloads or enters Play mode, reconnect to the saved objects
@@ -65,6 +108,16 @@ namespace CarRace
             ClearGeneratedScene();
             centers.Clear();
             BuildCenters();
+
+            if (UsesUploadedMountainRoad())
+            {
+                BuildUploadedLighting();
+                BuildUploadedDriveSurface();
+                BuildPlayer();
+                BuildCamera();
+                return;
+            }
+
             BuildMaterials();
             BuildTrack();
             BuildEnvironment();
@@ -99,7 +152,8 @@ namespace CarRace
                    objectName.StartsWith("Road Guardrail") ||
                    objectName.StartsWith("Mountain Ridge") ||
                    objectName.StartsWith("Mountain Foothill") ||
-                   objectName.StartsWith("Mountain Snow");
+                   objectName.StartsWith("Mountain Snow") ||
+                   objectName == UploadedDriveSurfaceName;
         }
 
         private void Update()
@@ -109,6 +163,19 @@ namespace CarRace
 
             raceTime += Time.deltaTime;
             float progress = FindProgress(player.transform.position);
+
+            if (UsesUploadedMountainRoad())
+            {
+                if (progress >= 0.985f)
+                {
+                    finished = true;
+                    player.SetFinished(true);
+                }
+
+                previousProgress = progress;
+                return;
+            }
+
             if (previousProgress > 0.82f && progress < 0.18f)
             {
                 lap++;
@@ -127,8 +194,9 @@ namespace CarRace
             Rigidbody body = player.Body;
             body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
-            player.transform.position = centers[0] + Vector3.up * 1.8f;
-            player.transform.rotation = Quaternion.LookRotation(GetForward(0), Vector3.up);
+            player.transform.position = centers[0] + Vector3.up * 0.72f;
+            GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
+            player.transform.rotation = Quaternion.LookRotation(forward, up);
             previousProgress = 0f;
         }
 
@@ -250,6 +318,16 @@ namespace CarRace
         {
             if (centers.Count > 0) return;
 
+            if (UsesUploadedMountainRoad())
+            {
+                for (int i = 0; i < UploadedMountainRoadPath.Length; i++)
+                {
+                    centers.Add(UploadedMountainRoadPath[i]);
+                }
+
+                return;
+            }
+
             for (int i = 0; i < trackSegments; i++)
             {
                 float t = i / (float)trackSegments * Mathf.PI * 2f;
@@ -364,13 +442,31 @@ namespace CarRace
 
         private void BuildEnvironment()
         {
+            ConfigureEnvironmentLighting();
+
+            BuildTerrainMesh();
+            BuildMountainRange();
+
+            BuildSun();
+        }
+
+        private void BuildUploadedLighting()
+        {
+            ConfigureEnvironmentLighting();
+            BuildSun();
+        }
+
+        private static void ConfigureEnvironmentLighting()
+        {
             RenderSettings.fog = true;
             RenderSettings.fogColor = new Color(0.32f, 0.43f, 0.52f);
             RenderSettings.fogDensity = 0.0045f;
             RenderSettings.ambientLight = new Color(0.36f, 0.43f, 0.5f);
+        }
 
-            BuildTerrainMesh();
-            BuildMountainRange();
+        private static void BuildSun()
+        {
+            if (GameObject.Find("Race Sun") != null) return;
 
             GameObject sun = new GameObject("Race Sun");
             Light light = sun.AddComponent<Light>();
@@ -523,11 +619,74 @@ namespace CarRace
         private void BuildPlayer()
         {
             GameObject carObject = new GameObject("Player Rally Car");
-            carObject.transform.position = centers[0] + Vector3.up * 1.8f;
-            carObject.transform.rotation = Quaternion.LookRotation(GetForward(0), Vector3.up);
+            carObject.transform.position = centers[0] + Vector3.up * 0.72f;
+            GetRoadFrame(0, out Vector3 forward, out _, out Vector3 up);
+            carObject.transform.rotation = Quaternion.LookRotation(forward, up);
             carObject.AddComponent<BoxCollider>().size = new Vector3(2f, 1.4f, 4.4f);
             player = carObject.AddComponent<CarRaceVehicle>();
             player.Initialize();
+        }
+
+        private bool UsesUploadedMountainRoad()
+        {
+            return uploadedMountainRoad || GameObject.Find(UploadedEnvironmentName) != null;
+        }
+
+        private void BuildUploadedDriveSurface()
+        {
+            GameObject previous = GameObject.Find(UploadedDriveSurfaceName);
+            if (previous != null)
+            {
+                if (Application.isPlaying) Destroy(previous);
+                else DestroyImmediate(previous);
+            }
+
+            Mesh mesh = new Mesh { name = UploadedDriveSurfaceName + " Mesh" };
+            Vector3[] vertices = new Vector3[centers.Count * 2];
+            int[] triangles = new int[(centers.Count - 1) * 6];
+            float halfWidth = roadWidth * 0.5f;
+
+            for (int i = 0; i < centers.Count; i++)
+            {
+                GetRoadFrame(i, out _, out Vector3 right, out Vector3 up);
+                vertices[i * 2] = centers[i] - right * halfWidth + up * 0.04f;
+                vertices[i * 2 + 1] = centers[i] + right * halfWidth + up * 0.04f;
+
+                if (i >= centers.Count - 1) continue;
+                int ti = i * 6;
+                int next = (i + 1) * 2;
+                triangles[ti] = i * 2;
+                triangles[ti + 1] = next;
+                triangles[ti + 2] = i * 2 + 1;
+                triangles[ti + 3] = i * 2 + 1;
+                triangles[ti + 4] = next;
+                triangles[ti + 5] = next + 1;
+            }
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+
+            GameObject surface = new GameObject(UploadedDriveSurfaceName);
+            surface.AddComponent<MeshCollider>().sharedMesh = mesh;
+        }
+
+        public void NotifyUploadedMountainRoadLoaded(GameObject environment)
+        {
+            if (environment == null || !Application.isPlaying) return;
+
+            environment.name = UploadedEnvironmentName;
+            centers.Clear();
+            BuildCenters();
+            BuildUploadedLighting();
+            BuildUploadedDriveSurface();
+
+            if (player == null)
+            {
+                BuildPlayer();
+            }
+
+            BuildCamera();
         }
 
         private void BuildCamera()
@@ -548,14 +707,24 @@ namespace CarRace
         private Vector3 GetForward(int index)
         {
             Vector3 current = centers[index];
+            if (UsesUploadedMountainRoad() && index == centers.Count - 1)
+            {
+                return (current - centers[index - 1]).normalized;
+            }
+
             Vector3 next = centers[(index + 1) % centers.Count];
             return (next - current).normalized;
         }
 
         private void GetRoadFrame(int index, out Vector3 forward, out Vector3 right, out Vector3 up)
         {
-            Vector3 previous = centers[(index - 1 + centers.Count) % centers.Count];
-            Vector3 next = centers[(index + 1) % centers.Count];
+            bool uploaded = UsesUploadedMountainRoad();
+            Vector3 previous = uploaded && index == 0
+                ? centers[0] - (centers[1] - centers[0])
+                : centers[(index - 1 + centers.Count) % centers.Count];
+            Vector3 next = uploaded && index == centers.Count - 1
+                ? centers[index] + (centers[index] - centers[index - 1])
+                : centers[(index + 1) % centers.Count];
             forward = (next - previous).normalized;
             right = Vector3.Cross(Vector3.up, forward).normalized;
             up = Vector3.Cross(forward, right).normalized;
