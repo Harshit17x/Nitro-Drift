@@ -7,6 +7,14 @@ namespace CarRace
         private Transform target;
         private Vector3 velocity;
 
+        private void Awake()
+        {
+            if (GetComponent<AudioListener>() == null)
+            {
+                gameObject.AddComponent<AudioListener>();
+            }
+        }
+
         public void Initialize(Transform followTarget)
         {
             target = followTarget;

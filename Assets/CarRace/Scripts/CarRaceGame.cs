@@ -758,6 +758,10 @@ namespace CarRace
             }
 
             mainCamera.fieldOfView = 66f;
+            if (mainCamera.GetComponent<AudioListener>() == null)
+            {
+                mainCamera.gameObject.AddComponent<AudioListener>();
+            }
             CarRaceCamera cameraRig = mainCamera.gameObject.GetComponent<CarRaceCamera>() ?? mainCamera.gameObject.AddComponent<CarRaceCamera>();
             cameraRig.Initialize(player.transform);
         }

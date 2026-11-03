@@ -47,6 +47,13 @@ namespace CarRace
         [SerializeField] private float driftExitBoostForce = 3500f;
         [SerializeField] private float maxDriftAngle = 60f;
 
+        [Header("Audio")]
+        [SerializeField] private AudioClip engineClip;
+        [SerializeField] private AudioClip skidClip;
+        [SerializeField] private AudioClip boostClip;
+        [SerializeField] private AudioClip handbrakeClip;
+        [SerializeField] private AudioClip scrapeClip;
+
         // DeLorean wheel axle positions relative to the car root:
         // Front axles: local Y = -0.31, Z = 1.29, X = +/-0.79, tire bottom = -0.74
         // Rear axles: local Y = -0.27, Z = -1.24, X = +/-0.79, tire bottom = -0.76
@@ -91,6 +98,10 @@ namespace CarRace
         private ParticleSystem[] smokeEmitters;
         private ParticleSystem.EmissionModule[] smokeEmissions;
         private bool wasHandbrakeActive;
+
+        private AudioSource engineAudioSource;
+        private AudioSource skidAudioSource;
+        private AudioSource sfxAudioSource;
 
         private InputAction throttleAction;
         private InputAction brakeAction;
@@ -208,6 +219,7 @@ namespace CarRace
             visualRoot.localRotation = importedModel ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.Euler(0f, 180f, 0f);
             SetupSkidTrails();
             SetupSmokeEmitters();
+            SetupAudio();
         }
 
         private void SetupSkidTrails()
@@ -361,6 +373,176 @@ namespace CarRace
             }
         }
 
+        private void SetupAudio()
+        {
+            if (engineClip == null)
+            {
+#if UNITY_EDITOR
+                engineClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/CarRace/Audio/Engine_Loop.wav");
+#endif
+                if (engineClip == null) engineClip = Resources.Load<AudioClip>("CarRaceAudio/Engine_Loop");
+            }
+            if (skidClip == null)
+            {
+#if UNITY_EDITOR
+                skidClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/CarRace/Audio/Tire_Skid_Loop.wav");
+#endif
+                if (skidClip == null) skidClip = Resources.Load<AudioClip>("CarRaceAudio/Tire_Skid_Loop");
+            }
+            if (boostClip == null)
+            {
+#if UNITY_EDITOR
+                boostClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/CarRace/Audio/Drift_Boost.wav");
+#endif
+                if (boostClip == null) boostClip = Resources.Load<AudioClip>("CarRaceAudio/Drift_Boost");
+            }
+            if (handbrakeClip == null)
+            {
+#if UNITY_EDITOR
+                handbrakeClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/CarRace/Audio/Handbrake_Click.wav");
+#endif
+                if (handbrakeClip == null) handbrakeClip = Resources.Load<AudioClip>("CarRaceAudio/Handbrake_Click");
+            }
+            if (scrapeClip == null)
+            {
+#if UNITY_EDITOR
+                scrapeClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/CarRace/Audio/Car_Scrape.wav");
+#endif
+                if (scrapeClip == null) scrapeClip = Resources.Load<AudioClip>("CarRaceAudio/Car_Scrape");
+            }
+
+            Transform engineObj = transform.Find("Audio_Engine");
+            if (engineObj == null)
+            {
+                engineObj = new GameObject("Audio_Engine").transform;
+                engineObj.SetParent(transform, false);
+            }
+            engineAudioSource = engineObj.GetComponent<AudioSource>();
+            if (engineAudioSource == null) engineAudioSource = engineObj.gameObject.AddComponent<AudioSource>();
+            engineAudioSource.clip = engineClip;
+            engineAudioSource.loop = true;
+            engineAudioSource.playOnAwake = false;
+            engineAudioSource.volume = 0.45f;
+            engineAudioSource.pitch = 0.8f;
+            engineAudioSource.spatialBlend = 0.35f;
+            engineAudioSource.dopplerLevel = 0.2f;
+            engineAudioSource.rolloffMode = AudioRolloffMode.Linear;
+            engineAudioSource.minDistance = 3f;
+            engineAudioSource.maxDistance = 50f;
+            if (engineClip != null && !engineAudioSource.isPlaying) engineAudioSource.Play();
+
+            Transform skidObj = transform.Find("Audio_Skid");
+            if (skidObj == null)
+            {
+                skidObj = new GameObject("Audio_Skid").transform;
+                skidObj.SetParent(transform, false);
+            }
+            skidAudioSource = skidObj.GetComponent<AudioSource>();
+            if (skidAudioSource == null) skidAudioSource = skidObj.gameObject.AddComponent<AudioSource>();
+            skidAudioSource.clip = skidClip;
+            skidAudioSource.loop = true;
+            skidAudioSource.playOnAwake = false;
+            skidAudioSource.volume = 0f;
+            skidAudioSource.pitch = 1.0f;
+            skidAudioSource.spatialBlend = 0.4f;
+            skidAudioSource.dopplerLevel = 0.2f;
+            skidAudioSource.rolloffMode = AudioRolloffMode.Linear;
+            skidAudioSource.minDistance = 3f;
+            skidAudioSource.maxDistance = 45f;
+            if (skidClip != null && !skidAudioSource.isPlaying) skidAudioSource.Play();
+
+            Transform sfxObj = transform.Find("Audio_SFX");
+            if (sfxObj == null)
+            {
+                sfxObj = new GameObject("Audio_SFX").transform;
+                sfxObj.SetParent(transform, false);
+            }
+            sfxAudioSource = sfxObj.GetComponent<AudioSource>();
+            if (sfxAudioSource == null) sfxAudioSource = sfxObj.gameObject.AddComponent<AudioSource>();
+            sfxAudioSource.loop = false;
+            sfxAudioSource.playOnAwake = false;
+            sfxAudioSource.spatialBlend = 0.4f;
+        }
+
+        private void UpdateAudio()
+        {
+            if (body == null) return;
+
+            if (paused || finished)
+            {
+                if (engineAudioSource != null && engineAudioSource.isPlaying)
+                {
+                    engineAudioSource.volume = Mathf.Lerp(engineAudioSource.volume, 0f, Time.unscaledDeltaTime * 10f);
+                }
+                if (skidAudioSource != null && skidAudioSource.isPlaying)
+                {
+                    skidAudioSource.volume = 0f;
+                }
+                return;
+            }
+
+            float currentSpeed = body.linearVelocity.magnitude;
+            float speedRatio = Mathf.Clamp01(currentSpeed / maxSpeed);
+            float fwdSpeed = Vector3.Dot(body.linearVelocity, transform.forward);
+
+            // 1. Engine Sound Modulation:
+            if (engineAudioSource != null)
+            {
+                if (!engineAudioSource.isPlaying && engineClip != null) engineAudioSource.Play();
+
+                // Pitch ramps from 0.75x at idle up to 2.25x at high speed, plus throttle bite
+                float targetPitch = Mathf.Lerp(0.75f, 2.25f, speedRatio) + (throttle * 0.22f);
+                engineAudioSource.pitch = Mathf.Lerp(engineAudioSource.pitch, targetPitch, Time.deltaTime * 6.5f);
+
+                // Throttle rumble: idle is around 0.35, rises to 0.88 under load
+                float targetVol = Mathf.Lerp(0.35f, 0.88f, Mathf.Max(throttle, speedRatio * 0.75f));
+                engineAudioSource.volume = Mathf.Lerp(engineAudioSource.volume, targetVol, Time.deltaTime * 8f);
+            }
+
+            // 2. Tire Skid / Drift Audio Modulation:
+            if (skidAudioSource != null)
+            {
+                if (!skidAudioSource.isPlaying && skidClip != null) skidAudioSource.Play();
+
+                float skidIntensity = 0f;
+                // Immediate screech when Space (handbrake drag) is held down and car is moving
+                if (handbrake && fwdSpeed > 0.8f)
+                {
+                    skidIntensity = Mathf.Clamp01(0.65f + speedRatio * 0.35f);
+                }
+                // Also screech during high-angle lateral drifts
+                else if (isDrifting && currentDriftAngle > 6f && speedRatio > 0.12f)
+                {
+                    skidIntensity = Mathf.Clamp01((currentDriftAngle / 30f) * (speedRatio / 0.45f));
+                }
+
+                // Instant attack on drift/handbrake, clean fast release on Space release
+                float targetSkidVol = skidIntensity * 0.85f;
+                if (targetSkidVol > skidAudioSource.volume)
+                {
+                    skidAudioSource.volume = Mathf.MoveTowards(skidAudioSource.volume, targetSkidVol, Time.deltaTime * 30f);
+                }
+                else
+                {
+                    skidAudioSource.volume = Mathf.MoveTowards(skidAudioSource.volume, targetSkidVol, Time.deltaTime * 15f);
+                }
+                skidAudioSource.pitch = Mathf.Lerp(0.92f, 1.25f, speedRatio);
+            }
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (sfxAudioSource != null && scrapeClip != null)
+            {
+                float imp = collision.relativeVelocity.magnitude;
+                if (imp > 2.5f)
+                {
+                    float vol = Mathf.Clamp01((imp - 2.5f) / 12f) * 0.85f;
+                    sfxAudioSource.PlayOneShot(scrapeClip, vol);
+                }
+            }
+        }
+
         private static Texture2D MakeSoftCircleTexture(int size)
         {
             Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -428,6 +610,7 @@ namespace CarRace
 
             float forwardSpeed = body != null ? Vector3.Dot(body.linearVelocity, transform.forward) : 0f;
             AnimateWheels(forwardSpeed);
+            UpdateAudio();
         }
 
         private void FixedUpdate()
@@ -508,6 +691,11 @@ namespace CarRace
 
             if (handbrakeJustPressed)
             {
+                if (sfxAudioSource != null && handbrakeClip != null)
+                {
+                    sfxAudioSource.PlayOneShot(handbrakeClip, 0.85f);
+                }
+
                 if (Mathf.Abs(forwardSpeed) > 1.0f)
                 {
                     isDrifting = true;
@@ -542,6 +730,10 @@ namespace CarRace
                     {
                         // Release pop boost!
                         body.AddForce(surfaceFwd * (driftExitBoostForce * driftBoostCharge), ForceMode.Impulse);
+                        if (sfxAudioSource != null && boostClip != null)
+                        {
+                            sfxAudioSource.PlayOneShot(boostClip, 0.95f);
+                        }
                     }
                     isDrifting = false;
                     driftBoostCharge = 0f;
