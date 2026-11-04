@@ -83,55 +83,81 @@ namespace CarRace
             new Vector3(134.0f, 52.41f, 56.0f),
             new Vector3(150.0f, 53.36f, 72.0f),
 
-            // Highway Connector from Map 1 into Map 2:
-            new Vector3(156.6f, 57.09f, 75.8f),
-            new Vector3(164.3f, 58.72f, 83.6f),
-            new Vector3(172.1f, 60.22f, 91.4f),
-            new Vector3(180.5f, 67.19f, 99.0f),
-            new Vector3(188.8f, 87.48f, 106.6f),
+            // Continuous Canyon Bridge Highway Deck (Level height ~54m spanning the canyon)
+            new Vector3(165.0f, 53.50f, 78.0f),
+            new Vector3(185.0f, 53.80f, 88.0f),
+            new Vector3(204.5f, 54.00f, 99.0f),
+            new Vector3(224.0f, 54.10f, 101.0f),
+            new Vector3(244.0f, 54.20f, 104.0f),
+            new Vector3(264.0f, 54.30f, 108.0f),
+            new Vector3(284.0f, 54.40f, 112.5f),
+            new Vector3(304.0f, 54.50f, 118.0f),
+            new Vector3(325.0f, 54.60f, 123.0f),
+            new Vector3(345.0f, 54.60f, 129.0f),
+            new Vector3(365.0f, 54.60f, 134.0f),
+            new Vector3(385.0f, 54.50f, 140.0f),
+            new Vector3(405.0f, 54.40f, 146.0f),
+            new Vector3(425.0f, 54.30f, 152.0f),
+            new Vector3(445.0f, 54.20f, 159.0f),
+            new Vector3(465.0f, 54.10f, 165.0f),
+            new Vector3(485.0f, 54.00f, 172.0f),
+            new Vector3(505.0f, 54.00f, 179.0f),
+            new Vector3(525.0f, 54.00f, 186.0f),
+            new Vector3(545.0f, 54.00f, 193.0f),
+            new Vector3(557.2f, 54.00f, 199.1f),
 
-            // Map 2: Elevated Ridge Pass & Vista Climbs:
-            new Vector3(203.8f, 108.14f, 111.8f),
-            new Vector3(219.2f, 121.17f, 116.8f),
-            new Vector3(225.7f, 131.95f, 125.1f),
-            new Vector3(231.8f, 146.38f, 133.5f),
-            new Vector3(235.2f, 150.29f, 142.9f),
-            new Vector3(238.4f, 150.86f, 152.4f),
+            // Valley pass transition from Bridge End to Mountain 2 entrance
+            new Vector3(553.1f, 58.60f, 224.4f),
+            new Vector3(549.1f, 63.30f, 249.7f),
+            new Vector3(545.0f, 68.00f, 275.0f),
+            new Vector3(535.0f, 74.70f, 308.3f),
+            new Vector3(525.0f, 81.30f, 341.7f),
+            new Vector3(515.0f, 88.00f, 375.0f),
+            new Vector3(504.8f, 95.50f, 408.7f),
+            new Vector3(494.6f, 103.10f, 442.3f),
 
-            // Map 2: Panoramic Valley Drop & High-Speed Sweepers:
-            new Vector3(252.5f, 126.12f, 157.9f),
-            new Vector3(268.0f, 109.45f, 162.9f),
-            new Vector3(281.0f, 93.35f, 168.8f),
-            new Vector3(294.1f, 83.16f, 174.7f),
-            new Vector3(301.9f, 76.59f, 182.5f),
-            new Vector3(308.7f, 71.37f, 190.7f),
-            new Vector3(310.6f, 69.21f, 200.6f),
-            new Vector3(311.7f, 67.10f, 210.9f),
+            // Mountain 2: Elevated Ridge Pass & Vista Climbs (Scene transformed)
+            new Vector3(484.40f, 110.65f, 476.02f),
+            new Vector3(477.39f, 123.68f, 490.61f),
+            new Vector3(468.30f, 134.46f, 495.94f),
+            new Vector3(459.16f, 148.89f, 500.87f),
+            new Vector3(449.39f, 152.80f, 502.98f),
+            new Vector3(439.55f, 153.37f, 504.89f),
 
-            // Map 2: Lower Canyon Hairpin & River Curves:
-            new Vector3(294.0f, 82.40f, 228.0f),
-            new Vector3(277.7f, 91.00f, 244.5f),
-            new Vector3(272.6f, 98.82f, 257.0f),
-            new Vector3(272.1f, 96.05f, 267.8f),
-            new Vector3(277.6f, 94.87f, 276.5f),
-            new Vector3(285.9f, 89.33f, 284.1f),
-            new Vector3(292.9f, 89.96f, 292.2f),
-            new Vector3(301.5f, 93.42f, 299.7f),
+            // Mountain 2: Panoramic Valley Drop & High-Speed Sweepers
+            new Vector3(432.21f, 128.63f, 518.13f),
+            new Vector3(425.19f, 111.96f, 532.82f),
+            new Vector3(417.61f, 95.86f, 544.92f),
+            new Vector3(410.01f, 85.67f, 557.11f),
+            new Vector3(401.24f, 79.10f, 563.80f),
+            new Vector3(392.21f, 73.88f, 569.45f),
+            new Vector3(382.14f, 71.72f, 570.01f),
+            new Vector3(371.79f, 69.61f, 569.72f),
 
-            // Map 2: High-Mountain Ascent to Summit Peak:
-            new Vector3(312.9f, 103.74f, 306.2f),
-            new Vector3(324.1f, 108.10f, 312.8f),
-            new Vector3(328.2f, 113.02f, 321.9f),
-            new Vector3(331.9f, 120.68f, 331.2f),
-            new Vector3(344.4f, 130.82f, 337.3f),
-            new Vector3(357.0f, 147.65f, 343.4f),
-            new Vector3(363.5f, 158.41f, 351.6f),
-            new Vector3(369.8f, 167.54f, 360.0f),
-            new Vector3(380.7f, 173.85f, 366.7f),
-            new Vector3(391.0f, 171.28f, 373.5f),
-            new Vector3(396.9f, 171.86f, 382.0f),
+            // Mountain 2: Lower Canyon Hairpin & River Curves
+            new Vector3(357.20f, 84.91f, 549.90f),
+            new Vector3(343.02f, 93.51f, 531.54f),
+            new Vector3(331.32f, 101.33f, 524.82f),
+            new Vector3(320.68f, 98.56f, 522.89f),
+            new Vector3(311.32f, 97.38f, 527.18f),
+            new Vector3(302.68f, 91.84f, 534.39f),
+            new Vector3(293.72f, 92.47f, 540.24f),
+            new Vector3(285.14f, 95.93f, 547.77f),
+
+            // Mountain 2: High-Mountain Touge Ascent to Summit Peak
+            new Vector3(277.18f, 106.25f, 558.20f),
+            new Vector3(269.14f, 110.61f, 568.41f),
+            new Vector3(259.58f, 115.53f, 571.26f),
+            new Vector3(249.87f, 123.19f, 573.69f),
+            new Vector3(242.15f, 133.33f, 585.26f),
+            new Vector3(234.43f, 150.16f, 596.94f),
+            new Vector3(225.43f, 160.92f, 602.28f),
+            new Vector3(216.27f, 170.05f, 607.41f),
+            new Vector3(208.17f, 176.36f, 617.32f),
+            new Vector3(200.06f, 173.79f, 626.62f),
+            new Vector3(190.85f, 174.37f, 631.33f),
             // Summit Finish Line (Elevated 170m Peak):
-            new Vector3(402.1f, 169.87f, 390.8f)
+            new Vector3(181.43f, 172.38f, 635.31f)
         };
 
         public IReadOnlyList<Vector3> TrackCenters => centers;
@@ -150,6 +176,9 @@ namespace CarRace
             if (UsesUploadedMountainRoad())
             {
                 CleanUploadedDriveSurface();
+                EnsureSceneColliders();
+                BuildRoadConnector();
+
                 if (Application.isPlaying && GameObject.Find(UploadedEnvironmentName) == null)
                 {
                     if (GetComponent<MountainRoadRuntimeLoader>() == null)
@@ -458,6 +487,7 @@ namespace CarRace
         private void ReconnectSavedScene()
         {
             BuildCenters();
+            EnsureSceneColliders();
             GameObject carObject = GameObject.Find("Player Rally Car");
             if (carObject != null)
             {
@@ -469,7 +499,13 @@ namespace CarRace
             {
                 player.Initialize();
                 BuildCamera();
-                RespawnPlayer();
+                if (Application.isPlaying)
+                {
+                    if (player.transform.position.sqrMagnitude < 0.1f || player.transform.position.y < -10f)
+                    {
+                        RespawnPlayer();
+                    }
+                }
             }
         }
 
@@ -786,75 +822,201 @@ namespace CarRace
             }
         }
 
-        private void BuildRoadConnector()
+        private void EnsureSceneColliders()
         {
-            if (GameObject.Find(UploadedConnectorName) != null) return;
-            if (GameObject.Find(UploadedEnvironment2Name) == null) return;
-
-            GameObject connectorObj = new GameObject(UploadedConnectorName);
-            MeshFilter filter = connectorObj.AddComponent<MeshFilter>();
-            MeshRenderer renderer = connectorObj.AddComponent<MeshRenderer>();
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            Material mat = new Material(shader) { color = new Color(0.12f, 0.13f, 0.14f) };
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.05f);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.35f);
-            renderer.sharedMaterial = mat;
-
-            Vector3[] spline = {
-                new Vector3(146.0f, 52.8f, 68.0f),
-                new Vector3(150.0f, 53.36f, 72.0f),
-                new Vector3(153.5f, 55.2f, 74.0f),
-                new Vector3(158.0f, 57.1f, 77.0f),
-                new Vector3(162.0f, 58.2f, 81.0f)
+            string[] mapRoots = {
+                UploadedEnvironmentName,
+                UploadedEnvironment2Name,
+                "bridge_road_lowpoly",
+                "terraced_fields_hills_and_mountain_road"
             };
 
-            float width = 8.6f;
-            int count = spline.Length;
-            List<Vector3> verts = new List<Vector3>();
-            List<Vector3> norms = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-            List<int> tris = new List<int>();
+            foreach (string rootName in mapRoots)
+            {
+                GameObject obj = GameObject.Find(rootName);
+                if (obj != null)
+                {
+                    AddStaticMeshColliders(obj.transform);
+                }
+            }
+        }
 
+        private static void AddStaticMeshColliders(Transform root)
+        {
+            foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+            {
+                child.gameObject.isStatic = true;
+                MeshFilter meshFilter = child.GetComponent<MeshFilter>();
+                if (meshFilter == null || meshFilter.sharedMesh == null) continue;
+
+                MeshCollider collider = child.GetComponent<MeshCollider>();
+                if (collider == null) collider = child.gameObject.AddComponent<MeshCollider>();
+                collider.sharedMesh = meshFilter.sharedMesh;
+                collider.convex = false;
+            }
+        }
+
+        private void BuildRoadConnector()
+        {
+            // Remove previous procedural connector objects
+            GameObject previousConnector = GameObject.Find(UploadedConnectorName);
+            if (previousConnector != null)
+            {
+                if (Application.isPlaying) Destroy(previousConnector);
+                else DestroyImmediate(previousConnector);
+            }
+
+            // Ensure colliders are present on all map pieces in the scene without modifying their transforms
+            EnsureSceneColliders();
+
+            // Find the user's bridge in the scene
+            GameObject bridge = GameObject.Find("bridge_road_lowpoly");
+            if (bridge != null)
+            {
+                AddStaticMeshColliders(bridge.transform);
+                bridge.isStatic = true;
+            }
+
+            GameObject connectorObj = new GameObject(UploadedConnectorName);
+            connectorObj.isStatic = true;
+
+            Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Material asphaltMaterial = new Material(litShader)
+            {
+                color = new Color(0.12f, 0.13f, 0.14f)
+            };
+            if (asphaltMaterial.HasProperty("_Smoothness")) asphaltMaterial.SetFloat("_Smoothness", 0.35f);
+
+            // Full continuous canyon bridge highway spanning from Mountain 1 road end (index 27)
+            // across the canyon along the bridge (~54.6m) and through the valley pass to Mountain 2 entrance (index 57)
+            int startIndex = 27; // (150.0f, 53.36f, 72.0f)
+            int endIndex = 57;   // (484.40f, 110.65f, 476.02f)
+            int count = endIndex - startIndex + 1;
+            Vector3[] fullBridgeHighway = new Vector3[count];
             for (int i = 0; i < count; i++)
             {
-                Vector3 cur = spline[i];
-                Vector3 fwd = (i < count - 1 ? spline[i + 1] - cur : cur - spline[i - 1]).normalized;
-                Vector3 rgt = Vector3.Cross(Vector3.up, fwd).normalized;
-                Vector3 up = Vector3.Cross(fwd, rgt).normalized;
+                fullBridgeHighway[i] = UploadedMountainRoadPath[startIndex + i];
+            }
 
-                verts.Add(cur - rgt * (width * 0.5f));
-                verts.Add(cur + rgt * (width * 0.5f));
-                norms.Add(up);
-                norms.Add(up);
+            float connWidth = Mathf.Max(roadWidth, 11f);
+            GameObject highwayRibbon = CreateConnectingRoadRibbon("Connector_CanyonBridge_Highway", fullBridgeHighway, connWidth, asphaltMaterial);
+            if (highwayRibbon != null)
+            {
+                highwayRibbon.transform.SetParent(connectorObj.transform, true);
+                BuildBridgeStructure(highwayRibbon.transform, fullBridgeHighway, connWidth, litShader);
+            }
+        }
 
-                float v = i / (float)(count - 1) * 3f;
-                uvs.Add(new Vector2(0f, v));
-                uvs.Add(new Vector2(1f, v));
+        private static GameObject CreateConnectingRoadRibbon(string ribbonName, Vector3[] path, float width, Material material)
+        {
+            if (path == null || path.Length < 2) return null;
+
+            GameObject obj = new GameObject(ribbonName);
+            Mesh mesh = new Mesh { name = ribbonName + "_Mesh" };
+
+            int count = path.Length;
+            Vector3[] vertices = new Vector3[count * 2];
+            Vector2[] uv = new Vector2[count * 2];
+            int[] triangles = new int[(count - 1) * 6];
+
+            float dist = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 forward;
+                if (i == 0) forward = (path[1] - path[0]).normalized;
+                else if (i == count - 1) forward = (path[count - 1] - path[count - 2]).normalized;
+                else forward = (path[i + 1] - path[i - 1]).normalized;
+
+                Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+                if (right.sqrMagnitude < 0.01f) right = Vector3.right;
+                Vector3 up = Vector3.Cross(forward, right).normalized;
+
+                if (i > 0) dist += Vector3.Distance(path[i], path[i - 1]);
+
+                vertices[i * 2] = path[i] - right * (width * 0.5f);
+                vertices[i * 2 + 1] = path[i] + right * (width * 0.5f);
+                uv[i * 2] = new Vector2(0f, dist * 0.2f);
+                uv[i * 2 + 1] = new Vector2(1f, dist * 0.2f);
 
                 if (i < count - 1)
                 {
-                    int baseIdx = i * 2;
-                    tris.Add(baseIdx);
-                    tris.Add(baseIdx + 1);
-                    tris.Add(baseIdx + 2);
-                    tris.Add(baseIdx + 1);
-                    tris.Add(baseIdx + 3);
-                    tris.Add(baseIdx + 2);
+                    int ti = i * 6;
+                    triangles[ti] = i * 2;
+                    triangles[ti + 1] = (i + 1) * 2;
+                    triangles[ti + 2] = i * 2 + 1;
+                    triangles[ti + 3] = i * 2 + 1;
+                    triangles[ti + 4] = (i + 1) * 2;
+                    triangles[ti + 5] = (i + 1) * 2 + 1;
                 }
             }
 
-            Mesh mesh = new Mesh { name = "RoadConnectorMesh" };
-            mesh.SetVertices(verts);
-            mesh.SetNormals(norms);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(tris, 0);
-            mesh.RecalculateBounds();
-            filter.sharedMesh = mesh;
+            mesh.vertices = vertices;
+            mesh.uv = uv;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
 
-            MeshCollider collider = connectorObj.AddComponent<MeshCollider>();
+            obj.AddComponent<MeshFilter>().sharedMesh = mesh;
+            obj.AddComponent<MeshRenderer>().sharedMaterial = material;
+            MeshCollider collider = obj.AddComponent<MeshCollider>();
             collider.sharedMesh = mesh;
-            connectorObj.isStatic = true;
+            collider.convex = false;
+            obj.isStatic = true;
+
+            return obj;
+        }
+
+        private static void BuildBridgeStructure(Transform bridge, Vector3[] path, float width, Shader shader)
+        {
+            Material deckMaterial = new Material(shader) { color = new Color(0.16f, 0.17f, 0.18f) };
+            Material railMaterial = new Material(shader) { color = new Color(0.48f, 0.52f, 0.55f) };
+            if (deckMaterial.HasProperty("_Smoothness")) deckMaterial.SetFloat("_Smoothness", 0.25f);
+            if (railMaterial.HasProperty("_Metallic")) railMaterial.SetFloat("_Metallic", 0.55f);
+            if (railMaterial.HasProperty("_Smoothness")) railMaterial.SetFloat("_Smoothness", 0.55f);
+
+            // A visible underside gives the road ribbon a bridge deck profile.
+            for (int i = 0; i < path.Length - 1; i++)
+            {
+                Vector3 delta = path[i + 1] - path[i];
+                float length = delta.magnitude;
+                if (length < 0.01f) continue;
+                Vector3 forward = delta / length;
+                Vector3 up = Vector3.Cross(forward, Vector3.Cross(Vector3.up, forward)).normalized;
+                if (up.sqrMagnitude < 0.5f) up = Vector3.up;
+                Vector3 midpoint = (path[i] + path[i + 1]) * 0.5f;
+
+                GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                slab.name = "Bridge Deck Support";
+                slab.transform.SetParent(bridge, true);
+                slab.transform.SetPositionAndRotation(midpoint - up * 0.32f, Quaternion.LookRotation(forward, up));
+                slab.transform.localScale = new Vector3(width, 0.55f, length + 0.08f);
+                slab.GetComponent<Renderer>().sharedMaterial = deckMaterial;
+                slab.isStatic = true;
+
+                Vector3 right = Vector3.Cross(up, forward).normalized;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    Vector3 railPosition = midpoint + right * side * (width * 0.5f - 0.15f) + up * 0.72f;
+                    GameObject rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    rail.name = "Bridge Guardrail";
+                    rail.transform.SetParent(bridge, true);
+                    rail.transform.SetPositionAndRotation(railPosition, Quaternion.LookRotation(forward, up));
+                    rail.transform.localScale = new Vector3(0.22f, 0.72f, length + 0.12f);
+                    rail.GetComponent<Renderer>().sharedMaterial = railMaterial;
+                    rail.isStatic = true;
+
+                    if (i % 4 == 0)
+                    {
+                        GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        post.name = "Bridge Rail Post";
+                        post.transform.SetParent(bridge, true);
+                        post.transform.SetPositionAndRotation(path[i] + right * side * (width * 0.5f - 0.15f) + up * 0.42f,
+                            Quaternion.LookRotation(forward, up));
+                        post.transform.localScale = new Vector3(0.24f, 0.9f, 0.24f);
+                        post.GetComponent<Renderer>().sharedMaterial = railMaterial;
+                        post.isStatic = true;
+                    }
+                }
+            }
         }
 
         public void NotifyUploadedMountainRoadLoaded(GameObject environment)

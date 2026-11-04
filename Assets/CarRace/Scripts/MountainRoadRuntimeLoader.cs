@@ -33,8 +33,8 @@ namespace CarRace
                 {
                     env2 = Instantiate(asset2);
                     env2.name = "Mountain Road Environment 2";
-                    env2.transform.position = new Vector3(248.88f, 39.49f, 244.37f);
-                    env2.transform.rotation = Quaternion.Euler(0f, 200f, 0f) * Quaternion.Euler(-90f, 0f, 0f);
+                    env2.transform.position = new Vector3(347f, 42f, 503f);
+                    env2.transform.rotation = new Quaternion(-0.44340926f, 0.5508069f, 0.5508069f, 0.44340926f);
                     env2.transform.localScale = Vector3.one;
                     AddStaticMeshColliders(env2.transform);
                 }

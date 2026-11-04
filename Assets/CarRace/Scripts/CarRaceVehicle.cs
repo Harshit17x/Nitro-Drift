@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -654,6 +655,10 @@ namespace CarRace
                     groundedCount++;
                     wheelGrounded[i] = true;
                     Vector3 groundNormal = roadHit.normal.normalized;
+                    if (Vector3.Dot(groundNormal, Vector3.up) < minimumGroundNormal)
+                    {
+                        groundNormal = Vector3.up;
+                    }
                     groundNormals[i] = groundNormal;
                     groundNormalSum += groundNormal;
                     groundContactPoints[i] = roadHit.point;
@@ -1048,7 +1053,12 @@ namespace CarRace
                 // ray should only support the car from a reasonably upward-facing
                 // driving surface.
                 Vector3 normal = hit.normal.normalized;
-                if (Vector3.Dot(normal, Vector3.up) < minimumGroundNormal) continue;
+                string colName = hit.collider != null ? hit.collider.name.ToLowerInvariant() : "";
+                string parentName = (hit.collider != null && hit.collider.transform.parent != null) ? hit.collider.transform.parent.name.ToLowerInvariant() : "";
+                bool isBridgeOrRoad = colName.Contains("bridge") || colName.Contains("connector") || colName.Contains("road") ||
+                    parentName.Contains("bridge") || parentName.Contains("connector") || parentName.Contains("road");
+
+                if (!isBridgeOrRoad && Vector3.Dot(normal, Vector3.up) < minimumGroundNormal) continue;
 
                 if (hit.distance < closestDistance)
                 {
